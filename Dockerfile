@@ -7,6 +7,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY app ./app
 COPY model ./model
 COPY run.py .
+COPY samples ./samples
 
 ENV ASCENT_DB=/data/ascent.db
 RUN mkdir -p /data
