@@ -74,6 +74,9 @@ def test_demo_mode_blocks_mutations_and_llm_but_allows_reads():
             r = getattr(c, method)(path, json=body)
             assert r.status_code == 403 and r.json()["detail"]["error"] == "demo_read_only", path
         assert c.post("/api/auth/setup", json={"passphrase": "whatever12"}).status_code == 403
+        # plan regeneration from seeded fictional data is the one allowed mutation
+        r = c.post("/api/plan/run")
+        assert r.status_code == 200 and "items" in r.json()
 
 
 def test_csrf_header_required_on_mutations():

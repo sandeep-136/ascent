@@ -31,7 +31,10 @@ async def access_gate(request: Request, call_next):
     if path.startswith("/api/auth/"):
         return await call_next(request)
     if auth.demo_mode():
-        if path.startswith("/api/llm/") or request.method not in ("GET", "HEAD"):
+        # The only mutation a visitor may trigger: regenerating the plan from
+        # the seeded fictional data. It stores nothing the visitor supplies.
+        plan_run = path == "/api/plan/run" and request.method == "POST"
+        if not plan_run and (path.startswith("/api/llm/") or request.method not in ("GET", "HEAD")):
             return JSONResponse({"detail": {"error": "demo_read_only"}}, status_code=403)
         return await call_next(request)
     if path == "/api/status":

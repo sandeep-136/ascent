@@ -299,6 +299,16 @@ const api = async (path, opts = {}) => {
   return r.json();
 };
 
+/* demo banner */
+api("/api/auth/me").then(me => {
+  if (me.demo) {
+    const b = document.createElement("div");
+    b.className = "banner";
+    b.textContent = "Public demo: fictional sample data, editing and AI features are disabled here. The private version has full editing and review-before-send AI.";
+    document.querySelector("main").prepend(b);
+  }
+});
+
 /* owner auth overlay */
 function showAuth() {
   api("/api/auth/me").then(me => {
