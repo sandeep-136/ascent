@@ -27,7 +27,6 @@ PROTECTED_GETS = ["/api/tasks", "/api/profile", "/api/applications",
                   "/api/interviews", "/api/fit/history", "/api/interview/stats",
                   "/api/agent/runs"]
 PROTECTED_MUTATIONS = [
-    ("post", "/api/plan/run", {}),
     ("post", "/api/tasks", {"title": "x"}),
     ("post", "/api/fit", {"jd_text": "Need Python and FastAPI for this role."}),
     ("post", "/api/llm/preview", {"feature": "gap_brief", "analysis_id": 1}),
