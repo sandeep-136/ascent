@@ -94,6 +94,18 @@ def main():
     conn.commit()
     interview.seed_questions(conn)
     interview.regenerate_project_questions(conn)
+    # Fictional practice history so the progress view has sample content.
+    bank_qs = db.query(conn, "SELECT id FROM question WHERE source = 'bank' LIMIT 3")
+    sample_answers = [
+        (bank_qs[0]["id"], "practice", "Sample answer: walked through the approach, named the trade-offs, gave a small example.", 4, now - 3 * 86400),
+        (bank_qs[1]["id"], "mock", "Sample answer: defined the terms, compared the two options, admitted what I would verify.", 3, now - 2 * 86400),
+        (bank_qs[2]["id"], "practice", "Sample answer: solved the easy case first, then generalised; stated the complexity.", 4, now - 1 * 86400),
+    ]
+    for qid, mode, text, rating, ts in sample_answers:
+        db.insert(conn, "practice_session", {
+            "question_id": qid, "mode": mode, "answer_text": text,
+            "self_rating": rating, "llm_feedback": "", "created_at": ts})
+    conn.commit()
     print("demo persona seeded (all data fictional)")
 
 

@@ -497,6 +497,59 @@ def post_answer(body: AnswerIn):
         c.close()
 
 
+class SessionStartIn(BaseModel):
+    category: str | None = None
+    length: int = Field(default=5, ge=3, le=8)
+
+class SessionAnswerIn(BaseModel):
+    question_id: int
+    answer_text: str = Field(min_length=1, max_length=20000)
+    self_rating: int | None = Field(default=None, ge=1, le=5)
+
+@app.post("/api/interview/sessions", status_code=201)
+def start_mock_session(body: SessionStartIn):
+    c = conn()
+    try:
+        try:
+            return interview.start_session(c, body.category or None, body.length)
+        except ValueError as exc:
+            raise HTTPException(422, str(exc))
+    finally:
+        c.close()
+
+@app.get("/api/interview/sessions/{sid}")
+def mock_session_state(sid: int):
+    c = conn()
+    try:
+        try:
+            return interview.session_state(c, sid)
+        except KeyError as exc:
+            raise HTTPException(404, str(exc))
+    finally:
+        c.close()
+
+@app.post("/api/interview/sessions/{sid}/answer")
+def answer_mock_session(sid: int, body: SessionAnswerIn):
+    c = conn()
+    try:
+        try:
+            return interview.answer_in_session(c, sid, body.question_id,
+                                               body.answer_text, body.self_rating)
+        except KeyError as exc:
+            raise HTTPException(404, str(exc))
+        except ValueError as exc:
+            raise HTTPException(422, str(exc))
+    finally:
+        c.close()
+
+@app.get("/api/interview/history")
+def interview_history():
+    c = conn()
+    try:
+        return interview.history(c)
+    finally:
+        c.close()
+
 @app.get("/api/interview/stats")
 def interview_stats():
     c = conn()

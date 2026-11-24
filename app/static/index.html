@@ -283,7 +283,28 @@
 <!-- INTERVIEW -->
 <section class="tab" id="tab-interview">
   <div class="card">
-    <h2>Mock interview</h2>
+    <h2>Mock session</h2>
+    <p class="muted">A fixed run of questions back to back, like a real interview loop. After each answer you get the model points and the follow-up an interviewer would ask; a review closes the session.</p>
+    <div class="row" style="grid-template-columns: 2fr 1fr auto; align-items: end;">
+      <div><label>Category</label>
+        <select id="ms-cat">
+          <option value="">Mixed</option><option value="python">Python</option>
+          <option value="sql">SQL</option><option value="dsa">DSA</option>
+          <option value="web">Web / JS / React</option><option value="ml">ML / AI</option>
+          <option value="cs">CS & system design</option>
+          <option value="behavioral">Behavioral</option>
+          <option value="project">My projects</option>
+        </select>
+      </div>
+      <div><label>Questions</label>
+        <select id="ms-len"><option value="3">3</option><option value="5" selected>5</option><option value="8">8</option></select>
+      </div>
+      <button class="act" id="ms-start">Start session</button>
+    </div>
+    <div id="ms-out" style="margin-top:14px"></div>
+  </div>
+  <div class="card">
+    <h2>Quick practice</h2>
     <div class="row" style="grid-template-columns: 1fr auto; align-items: end;">
       <div><label>Category</label>
         <select id="q-cat">
@@ -302,6 +323,8 @@
   <div class="card">
     <h2>Practice progress</h2>
     <div id="q-stats"></div>
+    <h3>Recent practice</h3>
+    <div id="q-history"></div>
   </div>
 </section>
 
@@ -362,7 +385,7 @@ function lockEl(el) {
 function lockDynamic() {
   if (!DEMO) return;
   document.querySelectorAll(
-    "#task-list button, #app-list button, #project-list button, #skill-list a, #submit-answer, #ai-feedback, #ai-brief, #q-answer, #q-stars button"
+    "#task-list button, #app-list button, #project-list button, #skill-list a, #submit-answer, #ai-feedback, #ai-brief, #q-answer, #q-stars button, #ms-start, #ms-submit, #ms-answer, #ms-stars button"
   ).forEach(lockEl);
 }
 api("/api/auth/me").then(me => {
@@ -420,7 +443,7 @@ document.querySelectorAll("#tabs button").forEach(b => b.onclick = () => {
   if (b.dataset.tab === "today") loadTasks();
   if (b.dataset.tab === "applications") loadApps();
   if (b.dataset.tab === "prepare") loadFitHistory();
-  if (b.dataset.tab === "interview") loadQStats();
+  if (b.dataset.tab === "interview") { loadQStats(); loadQHistory(); }
   if (b.dataset.tab === "profile") loadProfile();
 });
 
@@ -609,12 +632,105 @@ $("next-q").onclick = async () => {
   };
 };
 
+/* MOCK SESSION */
+let ms = null;
+$("ms-start").onclick = async () => {
+  ms = await api("/api/interview/sessions", {method: "POST", body: JSON.stringify({
+    category: $("ms-cat").value || null, length: +$("ms-len").value})});
+  renderSession();
+};
+function renderSession(review) {
+  if (!ms) { $("ms-out").innerHTML = ""; return; }
+  if (ms.status === "finished") return renderSessionReview();
+  const cur = ms.current;
+  const pct = Math.round(100 * ms.answered / ms.total);
+  $("ms-out").innerHTML = `
+    <div class="progress"><div style="width:${pct}%"></div></div>
+    <p class="muted" style="margin:6px 0 10px">Question ${ms.answered + 1} of ${ms.total}</p>
+    <div class="q-card">
+      <span class="chip dim">${esc(cur.category)}</span>
+      <span class="chip dim">${esc(cur.difficulty)}</span>
+      ${cur.source === "generated" ? `<span class="chip ok">from your projects</span>` : ""}
+      <p style="font-size:17px; font-weight:700; margin:10px 0">${esc(cur.question)}</p>
+      ${review ? sessionReviewHtml(review) : `
+        <label>Your answer</label>
+        <textarea id="ms-answer" placeholder="Say it out loud first, then write the gist…"></textarea>
+        <label>Rate yourself</label>
+        <div class="stars" id="ms-stars">${[1,2,3,4,5].map(i => `<button data-v="${i}">★</button>`).join("")}</div>
+        <div style="margin-top:12px"><button class="act" id="ms-submit">Submit answer</button></div>`}
+    </div>`;
+  if (review) {
+    $("ms-next").onclick = async () => {
+      ms = await api(`/api/interview/sessions/${ms.session_id}`);
+      renderSession();
+    };
+  } else {
+    let rating = 0;
+    document.querySelectorAll("#ms-stars button").forEach(b => b.onclick = () => {
+      rating = +b.dataset.v;
+      document.querySelectorAll("#ms-stars button").forEach(x => x.classList.toggle("on", +x.dataset.v <= rating));
+    });
+    $("ms-submit").onclick = async () => {
+      const answer = $("ms-answer").value.trim();
+      if (!answer) return alert("Write your answer first.");
+      const r = await api(`/api/interview/sessions/${ms.session_id}/answer`, {method: "POST",
+        body: JSON.stringify({question_id: cur.question_id, answer_text: answer, self_rating: rating || null})});
+      ms = r.session;
+      loadQStats(); loadQHistory();
+      if (ms.status === "finished") renderSessionReview(); else renderSession(r.review);
+    };
+  }
+  lockDynamic();
+}
+function sessionReviewHtml(review) {
+  return `
+    <div class="points"><b>Points a strong answer covers:</b>
+      <ul>${review.model_points.map(p => `<li>${esc(p)}</li>`).join("")}</ul></div>
+    <div class="plan-item" style="border-left-color:#8a6d3b; background:linear-gradient(90deg,#fbf3e2,#fdf9f1 75%)">
+      <b>The interviewer pushes one level deeper:</b>
+      <div class="why">${esc(review.followup)}</div>
+    </div>
+    <div style="margin-top:12px"><button class="act" id="ms-next">Next question →</button></div>`;
+}
+function renderSessionReview() {
+  const rv = ms.review;
+  $("ms-out").innerHTML = `
+    <div class="progress"><div style="width:100%"></div></div>
+    <div class="q-card" style="margin-top:12px">
+      <h3 style="margin-top:0">Session review</h3>
+      <p><b>${ms.total}</b> questions${rv.avg_rating !== null ? ` · average self-rating <b>${rv.avg_rating}</b>/5` : ""}</p>
+      <p class="muted" style="margin:6px 0 12px">${esc(rv.note)}</p>
+      ${rv.items.map(i => `<div class="plan-item">
+        <b>${i.position}. ${esc(i.question || "")}</b>
+        <div class="meta">${i.self_rating ? `<span class="stars-static">${"★".repeat(i.self_rating)}${"☆".repeat(5 - i.self_rating)}</span>` : `<span class="chip dim">not rated</span>`}
+        <span class="chip dim">${esc(i.category || "")}</span></div>
+      </div>`).join("")}
+      <div style="margin-top:12px"><button class="ghost" id="ms-again">Done — start another any time</button></div>
+    </div>`;
+  $("ms-again").onclick = () => { ms = null; $("ms-out").innerHTML = ""; };
+  lockDynamic();
+}
+
 async function loadQStats() {
   const s = await api("/api/interview/stats");
   $("q-stats").innerHTML = s.total_sessions
     ? `<p><b>${s.total_sessions}</b> session(s) practiced.</p>` + s.by_category.map(c =>
         `<span class="chip dim">${esc(c.category)}: ${c.attempts}${c.avg_rating ? " · avg " + c.avg_rating.toFixed(1) + "★" : ""}</span>`).join("")
     : `<div class="empty">No practice sessions yet. One question a day compounds.</div>`;
+}
+
+async function loadQHistory() {
+  const rows = await api("/api/interview/history");
+  $("q-history").innerHTML = rows.length ? rows.map(r => {
+    const qtext = r.question || "";
+    return `<div class="plan-item" style="border-left-color:${r.mode === "mock" ? "#8a6d3b" : "var(--accent)"}">
+      <b>${esc(qtext.length > 90 ? qtext.slice(0, 90) + "…" : qtext)}</b>
+      <div class="meta"><span class="chip dim">${esc(r.category || "?")}</span>
+        <span class="chip dim">${esc(r.mode)}</span>
+        ${r.self_rating ? `<span class="stars-static">${"★".repeat(r.self_rating)}</span>` : ""}
+        <span class="chip dim">${new Date(r.created_at * 1000).toLocaleDateString()}</span></div>
+    </div>`;
+  }).join("") : `<div class="empty">No practice yet.</div>`;
 }
 
 /* PROFILE */

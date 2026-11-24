@@ -14,6 +14,10 @@ A project by Sandeep Sagar
 
 **Public demo (fictional sample data, read-only):** https://ascent-0fud.onrender.com
 
+<p>
+  <img src="docs/screenshots/today-plan.png" alt="Ascent - today's plan, built from deadlines and interviews, each item with its reason" width="720">
+</p>
+
 ## What it does
 
 - **Daily plan** — a deterministic planner turns interviews, deadlines,

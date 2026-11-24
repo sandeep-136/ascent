@@ -135,3 +135,167 @@ def stats(conn: sqlite3.Connection) -> dict:
         GROUP BY q.category ORDER BY attempts DESC""")
     total = db.query(conn, "SELECT COUNT(*) AS c FROM practice_session")[0]["c"]
     return {"total_sessions": total, "by_category": by_cat}
+
+# A good interviewer digs one level deeper. Deterministic follow-ups per
+# category so the practice loop keeps going without an LLM.
+FOLLOWUPS = {
+    "python": "How would you test that? Name the cases you would write first.",
+    "sql": "How does that behave on 10 million rows? Which index changes it?",
+    "dsa": "What is the time and space complexity, and what input breaks it?",
+    "web": "How does this behave on a slow connection or a small screen?",
+    "ml": "How would you know the model is getting stale in production?",
+    "cs": "What happens under the hood when load suddenly spikes 100x?",
+    "behavioral": "What was the measurable outcome, and what would you repeat?",
+    "project": "If you had two more weeks, what would you build next, and why that order?",
+}
+
+SESSION_MIN, SESSION_MAX = 3, 8
+
+
+def start_session(conn: sqlite3.Connection, category: str | None = None,
+                  length: int = 5) -> dict:
+    """Start a mock session: a fixed run of distinct questions, answered in
+    order, with a review at the end. The whole flow works offline."""
+    if not SESSION_MIN <= length <= SESSION_MAX:
+        raise ValueError(f"session length must be {SESSION_MIN}-{SESSION_MAX}")
+    if category:
+        rows = db.query(conn, "SELECT * FROM question WHERE category = ?", (category,))
+    else:
+        rows = db.query(conn, "SELECT * FROM question")
+    if not rows:
+        raise ValueError("no questions available")
+    recent = db.query(
+        conn,
+        "SELECT question_id FROM practice_session ORDER BY created_at DESC LIMIT 10")
+    recent_ids = {r["question_id"] for r in recent if r["question_id"] is not None}
+    fresh = [r for r in rows if r["id"] not in recent_ids]
+    pool = fresh if len(fresh) >= length else rows
+    chosen = random.sample(pool, min(length, len(pool)))
+    session_id = db.insert(conn, "mock_session", {
+        "category": category or "", "length": len(chosen),
+        "status": "active", "created_at": db.now(), "finished_at": None})
+    for pos, q in enumerate(chosen, start=1):
+        db.insert(conn, "mock_session_item", {
+            "session_id": session_id, "question_id": q["id"],
+            "position": pos, "practice_session_id": None})
+    db.record_agent_run(
+        conn, "mock_session",
+        {"category": category or "mixed", "length": len(chosen)},
+        [{"step": "compose",
+          "detail": f"Picked {len(chosen)} distinct questions"
+                    + (f" in category '{category}'" if category else " across all categories")
+                    + (", skipping the 10 most recently practiced" if fresh is pool and fresh else ".")}],
+        {"session_id": session_id})
+    return session_state(conn, session_id)
+
+
+def session_state(conn: sqlite3.Connection, session_id: int) -> dict:
+    s = db.get(conn, "mock_session", session_id)
+    if not s:
+        raise KeyError(f"session {session_id} not found")
+    items = db.query(conn, """
+        SELECT i.id AS item_id, i.position, i.practice_session_id,
+               q.id AS question_id, q.category, q.difficulty, q.question, q.source
+        FROM mock_session_item i LEFT JOIN question q ON q.id = i.question_id
+        WHERE i.session_id = ? ORDER BY i.position""", (session_id,))
+    answered = [i for i in items if i["practice_session_id"] is not None]
+    current = next((i for i in items if i["practice_session_id"] is None), None)
+    state = {
+        "session_id": session_id, "status": s["status"],
+        "category": s["category"] or "mixed", "total": len(items),
+        "answered": len(answered),
+        "current": current,
+    }
+    if s["status"] == "finished":
+        state["review"] = session_review(conn, session_id)
+    return state
+
+
+def answer_in_session(conn: sqlite3.Connection, session_id: int, question_id: int,
+                      answer_text: str, self_rating: int | None) -> dict:
+    """Record an answer for the session's current question and advance."""
+    s = db.get(conn, "mock_session", session_id)
+    if not s:
+        raise KeyError(f"session {session_id} not found")
+    if s["status"] != "active":
+        raise ValueError("session is already finished")
+    item = db.query(conn, """
+        SELECT * FROM mock_session_item
+        WHERE session_id = ? AND question_id = ? AND practice_session_id IS NULL""",
+        (session_id, question_id))
+    if not item:
+        raise ValueError("question is not awaiting an answer in this session")
+    result = record_session(conn, question_id, answer_text, self_rating, mode="mock")
+    conn.execute(
+        "UPDATE mock_session_item SET practice_session_id = ? WHERE id = ?",
+        (result["session_id"], item[0]["id"]))
+    conn.commit()
+    q = result["question"] or {}
+    followup = FOLLOWUPS.get(q.get("category", ""), "What would you do differently with one more attempt?")
+    state = session_state(conn, session_id)
+    out = {
+        "review": {
+            "question": q.get("question", ""),
+            "model_points": q.get("model_points", []),
+            "self_rating": self_rating,
+            "followup": followup,
+        },
+        "session": state,
+    }
+    if state["current"] is None:
+        finish_session(conn, session_id)
+        out["session"] = session_state(conn, session_id)
+    return out
+
+
+def finish_session(conn: sqlite3.Connection, session_id: int) -> dict:
+    conn.execute(
+        "UPDATE mock_session SET status = 'finished', finished_at = ? WHERE id = ?",
+        (db.now(), session_id))
+    conn.commit()
+    review = session_review(conn, session_id)
+    db.record_agent_run(
+        conn, "mock_session",
+        {"session_id": session_id, "phase": "review"},
+        [{"step": "review",
+          "detail": f"Session finished: {review['answered']} questions, "
+                    f"average self-rating {review['avg_rating']:.1f}/5."
+                    if review["avg_rating"] is not None else
+                    f"Session finished: {review['answered']} questions, no self-ratings."}],
+        {"avg_rating": review["avg_rating"]})
+    return review
+
+
+def session_review(conn: sqlite3.Connection, session_id: int) -> dict:
+    rows = db.query(conn, """
+        SELECT i.position, q.question, q.category, s.self_rating
+        FROM mock_session_item i
+        LEFT JOIN question q ON q.id = i.question_id
+        LEFT JOIN practice_session s ON s.id = i.practice_session_id
+        WHERE i.session_id = ? ORDER BY i.position""", (session_id,))
+    ratings = [r["self_rating"] for r in rows if r["self_rating"] is not None]
+    avg = sum(ratings) / len(ratings) if ratings else None
+    if avg is None:
+        note = "Session recorded. Rate yourself next time - honest ratings make the progress chart real."
+    elif avg >= 4:
+        note = "Strong session. Keep this bar and raise difficulty or speed next."
+    elif avg >= 2.5:
+        note = "Solid base. Re-attempt the low-rated questions in a day or two - spaced repetition sticks."
+    else:
+        note = "You found the gaps - that is the point. Review the model points and retry these soon."
+    return {
+        "answered": len([r for r in rows if r["self_rating"] is not None or r["question"]]),
+        "avg_rating": round(avg, 2) if avg is not None else None,
+        "note": note,
+        "items": rows,
+    }
+
+
+def history(conn: sqlite3.Connection, limit: int = 20) -> list[dict]:
+    """Recent practice attempts, newest first, for the progress view."""
+    return db.query(conn, """
+        SELECT s.id, s.mode, s.self_rating, s.created_at,
+               q.question, q.category, q.difficulty
+        FROM practice_session s LEFT JOIN question q ON q.id = s.question_id
+        ORDER BY s.created_at DESC LIMIT ?""", (limit,))
+

@@ -102,6 +102,23 @@ CREATE TABLE IF NOT EXISTS practice_session (
     created_at REAL NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS mock_session (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    category TEXT NOT NULL DEFAULT '',      -- '' means mixed
+    length INTEGER NOT NULL DEFAULT 5,
+    status TEXT NOT NULL DEFAULT 'active',  -- active|finished
+    created_at REAL NOT NULL,
+    finished_at REAL
+);
+
+CREATE TABLE IF NOT EXISTS mock_session_item (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    session_id INTEGER NOT NULL REFERENCES mock_session(id) ON DELETE CASCADE,
+    question_id INTEGER REFERENCES question(id) ON DELETE SET NULL,
+    position INTEGER NOT NULL,
+    practice_session_id INTEGER REFERENCES practice_session(id) ON DELETE SET NULL
+);
+
 CREATE TABLE IF NOT EXISTS jd_analysis (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     application_id INTEGER REFERENCES application(id) ON DELETE SET NULL,
