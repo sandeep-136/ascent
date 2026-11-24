@@ -644,14 +644,15 @@ function renderSession(review) {
   if (ms.status === "finished") return renderSessionReview();
   const cur = ms.current;
   const pct = Math.round(100 * ms.answered / ms.total);
+  const shown = review ? review : cur;
   $("ms-out").innerHTML = `
     <div class="progress"><div style="width:${pct}%"></div></div>
-    <p class="muted" style="margin:6px 0 10px">Question ${ms.answered + 1} of ${ms.total}</p>
+    <p class="muted" style="margin:6px 0 10px">${review ? `Question ${ms.answered} of ${ms.total} · reviewed` : `Question ${ms.answered + 1} of ${ms.total}`}</p>
     <div class="q-card">
-      <span class="chip dim">${esc(cur.category)}</span>
-      <span class="chip dim">${esc(cur.difficulty)}</span>
-      ${cur.source === "generated" ? `<span class="chip ok">from your projects</span>` : ""}
-      <p style="font-size:17px; font-weight:700; margin:10px 0">${esc(cur.question)}</p>
+      <span class="chip dim">${esc(shown.category)}</span>
+      <span class="chip dim">${esc(shown.difficulty)}</span>
+      ${!review && cur.source === "generated" ? `<span class="chip ok">from your projects</span>` : ""}
+      <p style="font-size:17px; font-weight:700; margin:10px 0">${esc(shown.question)}</p>
       ${review ? sessionReviewHtml(review) : `
         <label>Your answer</label>
         <textarea id="ms-answer" placeholder="Say it out loud first, then write the gist…"></textarea>

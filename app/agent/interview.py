@@ -236,6 +236,8 @@ def answer_in_session(conn: sqlite3.Connection, session_id: int, question_id: in
     out = {
         "review": {
             "question": q.get("question", ""),
+            "category": q.get("category", ""),
+            "difficulty": q.get("difficulty", ""),
             "model_points": q.get("model_points", []),
             "self_rating": self_rating,
             "followup": followup,
