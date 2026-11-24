@@ -12,6 +12,8 @@ call records an inspectable trace of how it was decided.
 
 A project by Sandeep Sagar
 
+**Public demo (fictional sample data, read-only):** https://ascent-0fud.onrender.com
+
 ## What it does
 
 - **Daily plan** — a deterministic planner turns interviews, deadlines,
