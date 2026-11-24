@@ -148,7 +148,12 @@ CREATE INDEX IF NOT EXISTS idx_interview_sched ON interview_event(status, schedu
 """
 
 
-def connect(db_path: str | None = None) -> sqlite3.Connection:
+def connect(db_path: str | None = None):
+    """Open the app's database. Turso (libSQL over HTTP) when its env is set -
+    that is the durable private deployment - else a local SQLite file."""
+    from . import turso
+    if turso.configured():
+        return turso.connect()
     path = db_path or os.environ.get("ASCENT_DB", DEFAULT_DB_PATH)
     conn = sqlite3.connect(path)
     conn.row_factory = sqlite3.Row

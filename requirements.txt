@@ -8,3 +8,4 @@ tokenizers>=0.15
 requests>=2.31
 gnani-vachana[llm]>=0.1; python_version >= "3.10"
 pytest>=8.0
+libsql-client>=0.3.0; python_version >= '3.10'

@@ -183,6 +183,7 @@
     <h3 id="auth-title">Unlock Ascent</h3>
     <p class="muted" style="font-size:13px" id="auth-hint"></p>
     <input id="auth-pass" type="password" placeholder="Passphrase" style="width:100%; margin:8px 0">
+    <input id="auth-code" type="password" placeholder="Setup code" style="width:100%; margin:0 0 8px; display:none">
     <button class="act" id="auth-go" style="width:100%">Continue</button>
     <p id="auth-err" class="finding"></p>
   </div>
@@ -419,6 +420,7 @@ function showAuth() {
     $("auth-hint").textContent = me.needs_setup
       ? "First run: choose a passphrase (8+ characters). It protects everything in this app."
       : "Enter your passphrase to continue.";
+    $("auth-code").style.display = (me.needs_setup && me.setup_code_required) ? "block" : "none";
     $("auth-overlay").classList.add("open");
   });
 }
@@ -427,7 +429,10 @@ $("auth-go").onclick = async () => {
   const me = await api("/api/auth/me");
   const path = me.needs_setup ? "/api/auth/setup" : "/api/auth/login";
   try {
-    await api(path, {method: "POST", body: JSON.stringify({passphrase: pw})});
+    const headers = {"Content-Type": "application/json", "X-Ascent-Client": "1"};
+    if (me.needs_setup && $("auth-code").value.trim())
+      headers["X-Ascent-Bootstrap"] = $("auth-code").value.trim();
+    await api(path, {method: "POST", headers, body: JSON.stringify({passphrase: pw})});
     $("auth-overlay").classList.remove("open");
     location.reload();
   } catch (e) { $("auth-err").textContent = e.message; }

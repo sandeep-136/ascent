@@ -70,8 +70,11 @@ def _set_session(response: Response, c) -> None:
 def auth_me(request: Request):
     c = conn()
     try:
+        import os
+        needs = auth.needs_setup(c)
         return {"authenticated": auth.valid_token(c, request.cookies.get(auth.COOKIE_NAME)),
-                "needs_setup": auth.needs_setup(c), "demo": auth.demo_mode()}
+                "needs_setup": needs, "demo": auth.demo_mode(),
+                "setup_code_required": needs and bool(os.environ.get("ASCENT_BOOTSTRAP_TOKEN"))}
     finally:
         c.close()
 
