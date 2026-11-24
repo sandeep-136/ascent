@@ -42,6 +42,7 @@ def test_needs_setup_and_all_routes_denied_without_session():
             assert anon.get(path).status_code == 401, path
         for method, path, body in PROTECTED_MUTATIONS:
             assert getattr(anon, method)(path, json=body).status_code == 401, path
+        assert anon.post("/api/plan/run").status_code == 401  # private mode: no unauth plan run
 
 
 def test_setup_login_and_authorized_access():
