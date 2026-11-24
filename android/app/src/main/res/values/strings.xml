@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Ascent</string>
+    <string name="offline_title">No connection</string>
+    <string name="offline_body">Ascent could not reach your private workspace. Check your internet connection and try again.</string>
+    <string name="retry">Retry</string>
+</resources>
