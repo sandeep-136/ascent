@@ -130,6 +130,11 @@ def startup():
     c = conn()
     interview.seed_questions(c)
     c.close()
+    if auth.demo_mode():
+        # Public demo: seed the fictional persona so visitors see a full app.
+        import subprocess
+        import sys
+        subprocess.run([sys.executable, "samples/seed_demo.py"], check=False)
 
 
 # ---------- schemas ----------
