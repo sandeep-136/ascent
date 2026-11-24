@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ascent — your career agent</title>
+<style>
+  :root {
+    --ink: #101820; --ink-soft: #40505e; --paper: #f6f7f4; --card: #ffffff;
+    --accent: #0e6b4f; --accent-soft: #e3f1ec; --warn: #b3541e; --warn-soft: #fbe9dd;
+    --line: #dfe4df; --radius: 14px;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  body {
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    background: var(--paper); color: var(--ink); line-height: 1.5;
+  }
+  header {
+    background: var(--ink); color: #fff; padding: 14px 20px;
+    display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap;
+    position: sticky; top: 0; z-index: 10;
+  }
+  .wordmark { font-size: 22px; font-weight: 800; letter-spacing: .5px; }
+  .wordmark span { color: #57d3a6; }
+  .tagline { font-size: 12px; color: #9db4ab; }
+  #llm-pill {
+    margin-left: auto; font-size: 11px; padding: 4px 10px; border-radius: 99px;
+    background: #223040; color: #8fa5b8;
+  }
+  #llm-pill.on { background: var(--accent); color: #fff; }
+  nav {
+    display: flex; gap: 4px; padding: 10px 14px 0; overflow-x: auto;
+    background: var(--paper); position: sticky; top: 54px; z-index: 9;
+  }
+  nav button {
+    border: 1px solid var(--line); background: var(--card); color: var(--ink-soft);
+    padding: 8px 16px; border-radius: 99px; font-size: 14px; font-weight: 600;
+    cursor: pointer; white-space: nowrap;
+  }
+  nav button.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+  main { max-width: 860px; margin: 0 auto; padding: 18px 14px 60px; }
+  section.tab { display: none; }
+  section.tab.active { display: block; }
+  .card {
+    background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 18px; margin-bottom: 14px;
+  }
+  h2 { font-size: 18px; margin-bottom: 4px; }
+  h3 { font-size: 15px; margin: 14px 0 6px; }
+  .muted { color: var(--ink-soft); font-size: 13px; }
+  button.act {
+    background: var(--accent); color: #fff; border: 0; border-radius: 10px;
+    padding: 9px 16px; font-size: 14px; font-weight: 700; cursor: pointer;
+  }
+  button.ghost {
+    background: none; border: 1px solid var(--line); color: var(--ink-soft);
+    border-radius: 10px; padding: 7px 12px; font-size: 13px; cursor: pointer;
+  }
+  input, select, textarea {
+    width: 100%; border: 1px solid var(--line); border-radius: 10px;
+    padding: 9px 11px; font-size: 14px; font-family: inherit; background: #fff;
+  }
+  textarea { min-height: 90px; resize: vertical; }
+  label { font-size: 12px; font-weight: 700; color: var(--ink-soft); display: block; margin: 10px 0 3px; }
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .plan-item {
+    border-left: 4px solid var(--accent); background: var(--accent-soft);
+    border-radius: 10px; padding: 12px 14px; margin: 10px 0;
+  }
+  .plan-item .why { font-size: 12px; color: var(--ink-soft); margin-top: 3px; }
+  .plan-item .meta { display: flex; gap: 8px; align-items: center; margin-top: 8px; flex-wrap: wrap; }
+  .chip {
+    display: inline-block; padding: 3px 10px; border-radius: 99px; font-size: 12px;
+    font-weight: 600; margin: 2px 3px 2px 0;
+  }
+  .chip.ok { background: var(--accent-soft); color: var(--accent); }
+  .chip.miss { background: var(--warn-soft); color: var(--warn); }
+  .chip.dim { background: #eef1ee; color: var(--ink-soft); }
+  .trace {
+    background: #0f1a16; color: #b8e6d2; font-family: ui-monospace, monospace;
+    font-size: 12px; border-radius: 10px; padding: 12px 14px; margin-top: 10px;
+    max-height: 220px; overflow-y: auto; white-space: pre-wrap;
+  }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th { text-align: left; font-size: 11px; text-transform: uppercase; color: var(--ink-soft); padding: 6px 8px; }
+  td { padding: 8px; border-top: 1px solid var(--line); vertical-align: top; }
+  .status-pill { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 99px; background: #eef1ee; }
+  .status-applied { background: #e0ecff; color: #1d4ed8; }
+  .status-interview, .status-oa { background: #f3e8ff; color: #7e22ce; }
+  .status-offer { background: var(--accent-soft); color: var(--accent); }
+  .status-rejected, .status-withdrawn { background: #f1f1f1; color: #777; }
+  .q-card { border: 1px dashed var(--accent); border-radius: var(--radius); padding: 16px; background: #fbfdfc; }
+  .points { background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; margin-top: 10px; }
+  .points li { margin-left: 18px; font-size: 14px; }
+  .stars button { font-size: 20px; background: none; border: 0; cursor: pointer; color: #c8cfc8; }
+  .stars button.on { color: #e8a13c; }
+  .empty { text-align: center; color: var(--ink-soft); padding: 30px 10px; font-size: 14px; }
+  .banner {
+    background: var(--warn-soft); border: 1px solid #eccbb4; color: var(--warn);
+    border-radius: 10px; padding: 10px 14px; font-size: 13px; margin-bottom: 14px;
+  }
+  .modal-backdrop { position: fixed; inset: 0; background: rgba(20,24,20,.55); display: none; align-items: center; justify-content: center; padding: 16px; z-index: 50; }
+  .modal-backdrop.open { display: flex; }
+  .modal { background: #fff; border-radius: 14px; max-width: 560px; width: 100%; max-height: 85vh; overflow-y: auto; padding: 18px; }
+  .modal h3 { margin: 0 0 8px; }
+  .payload-box { background: #f6f7f4; border: 1px solid #dfe4dc; border-radius: 8px; padding: 10px; font-size: 12.5px; white-space: pre-wrap; font-family: ui-monospace, monospace; margin: 8px 0; }
+  .finding { color: var(--warn); font-size: 13px; font-weight: 600; }
+  details { margin-top: 8px; }
+  summary { font-size: 12px; font-weight: 700; color: var(--ink-soft); cursor: pointer; }
+  .two-col { display: grid; grid-template-columns: 1fr; gap: 14px; }
+  @media (min-width: 640px) { .two-col { grid-template-columns: 1fr 1fr; } }
+</style>
+</head>
+<body>
+<header>
+  <div class="wordmark">Ascent<span>.</span></div>
+  <div class="tagline">your daily career agent</div>
+  <div id="llm-pill">checking…</div>
+</header>
+<nav id="tabs">
+  <button data-tab="today" class="active">Today</button>
+  <button data-tab="applications">Applications</button>
+  <button data-tab="prepare">JD Fit</button>
+  <button data-tab="interview">Interview</button>
+  <button data-tab="profile">Profile</button>
+</nav>
+<main>
+
+<!-- owner auth overlay -->
+<div class="modal-backdrop" id="auth-overlay">
+  <div class="modal" style="max-width:400px">
+    <h3 id="auth-title">Unlock Ascent</h3>
+    <p class="muted" style="font-size:13px" id="auth-hint"></p>
+    <input id="auth-pass" type="password" placeholder="Passphrase" style="width:100%; margin:8px 0">
+    <button class="act" id="auth-go" style="width:100%">Continue</button>
+    <p id="auth-err" class="finding"></p>
+  </div>
+</div>
+
+<!-- LLM payload preview modal -->
+<div class="modal-backdrop" id="llm-modal">
+  <div class="modal">
+    <h3>Review before anything is sent</h3>
+    <p class="muted" style="font-size:13px">This is the exact text that would go to the AI provider. Nothing has been sent yet.</p>
+    <div id="llm-findings"></div>
+    <label style="font-size:12px; font-weight:700; color:var(--ink-soft)">SYSTEM INSTRUCTION</label>
+    <div class="payload-box" id="llm-system"></div>
+    <label style="font-size:12px; font-weight:700; color:var(--ink-soft)">MESSAGE</label>
+    <div class="payload-box" id="llm-user"></div>
+    <div style="display:flex; gap:10px; margin-top:12px">
+      <button class="act" id="llm-confirm">Send it</button>
+      <button class="ghost" id="llm-cancel">Cancel</button>
+    </div>
+    <div id="llm-result" style="margin-top:12px"></div>
+  </div>
+</div>
+
+<!-- TODAY -->
+<section class="tab active" id="tab-today">
+  <div class="card">
+    <h2>Today's plan</h2>
+    <p class="muted">Built from your deadlines, follow-ups and interviews. Every item says why it's here.</p>
+    <div style="margin-top:10px">
+      <button class="act" id="run-plan">Build my plan</button>
+    </div>
+    <div id="plan-out"></div>
+  </div>
+  <div class="card">
+    <h2>Open tasks</h2>
+    <div class="row" style="grid-template-columns: 2fr 1fr; margin: 8px 0;">
+      <input id="custom-task" placeholder="Add your own task…">
+      <input id="custom-task-due" type="date">
+    </div>
+    <button class="ghost" id="add-task">Add task</button>
+    <div id="task-list" style="margin-top:12px"></div>
+  </div>
+</section>
+
+<!-- APPLICATIONS -->
+<section class="tab" id="tab-applications">
+  <div class="card">
+    <h2>Add an application</h2>
+    <div class="row">
+      <div><label>Company</label><input id="app-company" placeholder="Elip"></div>
+      <div><label>Role</label><input id="app-role" placeholder="SDE Intern"></div>
+    </div>
+    <div class="row">
+      <div><label>Status</label>
+        <select id="app-status">
+          <option value="saved">Saved</option><option value="applied">Applied</option>
+          <option value="oa">OA</option><option value="interview">Interview</option>
+          <option value="offer">Offer</option><option value="rejected">Rejected</option>
+          <option value="withdrawn">Withdrawn</option>
+        </select>
+      </div>
+      <div><label>Job post URL</label><input id="app-url" placeholder="https://…"></div>
+    </div>
+    <div class="row">
+      <div><label>Applied on</label><input id="app-applied" type="date"></div>
+      <div><label>Application deadline</label><input id="app-deadline" type="date"></div>
+    </div>
+    <div class="row">
+      <div><label>Follow-up due</label><input id="app-followup" type="date"></div>
+      <div><label>Source</label><input id="app-source" placeholder="LinkedIn, referral…"></div>
+    </div>
+    <label>Job description (paste full text)</label>
+    <textarea id="app-jd" placeholder="Paste the job description here — it powers the fit analysis."></textarea>
+    <div style="margin-top:12px"><button class="act" id="save-app">Save application</button></div>
+  </div>
+  <div class="card">
+    <h2>Tracked applications</h2>
+    <div id="app-list"></div>
+  </div>
+</section>
+
+<!-- JD FIT -->
+<section class="tab" id="tab-prepare">
+  <div class="card">
+    <h2>Job-description fit</h2>
+    <p class="muted">Transparent extraction: every skill shown points at words in the JD you paste. Your stored profile is compared locally — it is not sent anywhere.</p>
+    <label>Job description</label>
+    <textarea id="fit-jd" style="min-height:140px" placeholder="Paste the full job description…"></textarea>
+    <div style="margin-top:12px"><button class="act" id="run-fit">Analyse fit</button></div>
+    <div id="fit-out"></div>
+  </div>
+  <div class="card">
+    <h2>Past analyses</h2>
+    <div id="fit-history"></div>
+  </div>
+</section>
+
+<!-- INTERVIEW -->
+<section class="tab" id="tab-interview">
+  <div class="card">
+    <h2>Mock interview</h2>
+    <div class="row" style="grid-template-columns: 1fr auto; align-items: end;">
+      <div><label>Category</label>
+        <select id="q-cat">
+          <option value="">Any</option><option value="python">Python</option>
+          <option value="sql">SQL</option><option value="dsa">DSA</option>
+          <option value="web">Web / JS / React</option><option value="ml">ML / AI</option>
+          <option value="cs">CS & system design</option>
+          <option value="behavioral">Behavioral</option>
+          <option value="project">My projects</option>
+        </select>
+      </div>
+      <button class="act" id="next-q">New question</button>
+    </div>
+    <div id="q-out" style="margin-top:14px"></div>
+  </div>
+  <div class="card">
+    <h2>Practice progress</h2>
+    <div id="q-stats"></div>
+  </div>
+</section>
+
+<!-- PROFILE -->
+<section class="tab" id="tab-profile">
+  <div class="banner">Your details stay in this private workspace. They are compared locally and are never sent to an LLM provider. Delete anything any time.</div>
+  <div class="card">
+    <h2>About you</h2>
+    <label>Name</label><input id="pf-name">
+    <label>Headline</label><input id="pf-headline" placeholder="CS final-year, full-stack + AI/ML">
+    <label>Summary (used for JD similarity)</label><textarea id="pf-summary"></textarea>
+    <div style="margin-top:12px"><button class="act" id="save-pf">Save</button></div>
+  </div>
+  <div class="card">
+    <h2>Skills</h2>
+    <div class="row" style="grid-template-columns: 2fr 1fr 2fr;">
+      <div><label>Skill</label><input id="sk-name" placeholder="Python"></div>
+      <div><label>Level</label>
+        <select id="sk-level"><option>learning</option><option>working</option><option>confident</option></select>
+      </div>
+      <div><label>Evidence (project/experience)</label><input id="sk-evidence" placeholder="AnswerAloud"></div>
+    </div>
+    <div style="margin-top:10px"><button class="ghost" id="add-skill">Add skill</button></div>
+    <div id="skill-list" style="margin-top:12px"></div>
+  </div>
+  <div class="card">
+    <h2>Projects</h2>
+    <label>Title</label><input id="pj-title">
+    <label>Description</label><textarea id="pj-desc" style="min-height:60px"></textarea>
+    <label>Tech (comma separated)</label><input id="pj-tech" placeholder="Python, FastAPI, SQLite">
+    <label>URL</label><input id="pj-url">
+    <div style="margin-top:10px"><button class="ghost" id="add-project">Add project</button></div>
+    <p class="muted" style="margin-top:6px">Projects you add become "tell me about your project" questions in Interview mode.</p>
+    <div id="project-list" style="margin-top:12px"></div>
+  </div>
+</section>
+
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const api = async (path, opts = {}) => {
+  const r = await fetch(path, {headers: {"Content-Type": "application/json", "X-Ascent-Client": "1"}, ...opts});
+  if (r.status === 401) { showAuth(); throw new Error("auth required"); }
+  if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error((e.detail && e.detail.error) || e.detail || r.statusText); }
+  return r.json();
+};
+
+/* owner auth overlay */
+function showAuth() {
+  api("/api/auth/me").then(me => {
+    $("auth-title").textContent = me.needs_setup ? "Create your owner passphrase" : "Unlock Ascent";
+    $("auth-hint").textContent = me.needs_setup
+      ? "First run: choose a passphrase (8+ characters). It protects everything in this app."
+      : "Enter your passphrase to continue.";
+    $("auth-overlay").classList.add("open");
+  });
+}
+$("auth-go").onclick = async () => {
+  const pw = $("auth-pass").value;
+  const me = await api("/api/auth/me");
+  const path = me.needs_setup ? "/api/auth/setup" : "/api/auth/login";
+  try {
+    await api(path, {method: "POST", body: JSON.stringify({passphrase: pw})});
+    $("auth-overlay").classList.remove("open");
+    location.reload();
+  } catch (e) { $("auth-err").textContent = e.message; }
+};
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+/* tabs */
+document.querySelectorAll("#tabs button").forEach(b => b.onclick = () => {
+  document.querySelectorAll("#tabs button").forEach(x => x.classList.remove("active"));
+  document.querySelectorAll("section.tab").forEach(x => x.classList.remove("active"));
+  b.classList.add("active");
+  $("tab-" + b.dataset.tab).classList.add("active");
+  if (b.dataset.tab === "today") loadTasks();
+  if (b.dataset.tab === "applications") loadApps();
+  if (b.dataset.tab === "prepare") loadFitHistory();
+  if (b.dataset.tab === "interview") loadQStats();
+  if (b.dataset.tab === "profile") loadProfile();
+});
+
+/* status */
+api("/api/status").then(s => {
+  const pill = $("llm-pill");
+  if (s.llm_configured) { pill.textContent = "LLM connected · privacy: " + s.privacy_mode; pill.classList.add("on"); }
+  else pill.textContent = "LLM not connected — core features work offline";
+});
+
+/* TODAY */
+$("run-plan").onclick = async () => {
+  $("plan-out").innerHTML = "<p class='muted'>Thinking…</p>";
+  const plan = await api("/api/plan/run", {method: "POST"});
+  let html = "";
+  for (const item of plan.items) {
+    html += `<div class="plan-item">
+      <b>${esc(item.title)}</b>
+      <div class="why">${esc(item.why)}</div>
+      <div class="meta"><span class="chip dim">${esc(item.kind)}</span>
+      ${item.due_date ? `<span class="chip dim">due ${esc(item.due_date)}</span>` : ""}</div>
+    </div>`;
+  }
+  html += `<details><summary>How the agent decided (trace)</summary><div class="trace">${
+    plan.steps.map(s => "→ " + esc(s.detail)).join("\n")}</div></details>`;
+  $("plan-out").innerHTML = html;
+  loadTasks();
+};
+
+async function loadTasks() {
+  const tasks = await api("/api/tasks?status=open");
+  $("task-list").innerHTML = tasks.length ? tasks.map(t => `
+    <div class="plan-item" style="border-left-color:${t.source === "user" ? "#8a6d3b" : "var(--accent)"}">
+      <b>${esc(t.title)}</b>
+      <div class="why">${esc(t.why)}${t.due_date ? " · due " + esc(t.due_date) : ""}</div>
+      <div class="meta">
+        <button class="ghost" onclick="taskAction(${t.id}, 'done')">Done</button>
+        <button class="ghost" onclick="taskAction(${t.id}, 'skip')">Skip</button>
+      </div>
+    </div>`).join("") : `<div class="empty">No open tasks. Build your plan above.</div>`;
+}
+window.taskAction = async (id, action) => { await api(`/api/tasks/${id}/${action}`, {method: "POST"}); loadTasks(); };
+$("add-task").onclick = async () => {
+  const title = $("custom-task").value.trim();
+  if (!title) return;
+  await api("/api/tasks", {method: "POST", body: JSON.stringify({title, due_date: $("custom-task-due").value || null})});
+  $("custom-task").value = ""; loadTasks();
+};
+
+/* APPLICATIONS */
+$("save-app").onclick = async () => {
+  const body = {
+    company: $("app-company").value.trim(), role: $("app-role").value.trim(),
+    url: $("app-url").value.trim(), source: $("app-source").value.trim(),
+    status: $("app-status").value,
+    applied_on: $("app-applied").value || null,
+    deadline: $("app-deadline").value || null,
+    follow_up_due: $("app-followup").value || null,
+    jd_text: $("app-jd").value.trim(),
+  };
+  if (!body.company || !body.role) return alert("Company and role are needed.");
+  await api("/api/applications", {method: "POST", body: JSON.stringify(body)});
+  ["app-company","app-role","app-url","app-source","app-jd","app-applied","app-deadline","app-followup"].forEach(i => $(i).value = "");
+  loadApps();
+};
+
+async function loadApps() {
+  const apps = await api("/api/applications");
+  $("app-list").innerHTML = apps.length ? `<table>
+    <tr><th>Company</th><th>Role</th><th>Status</th><th>Dates</th><th></th></tr>
+    ${apps.map(a => `<tr>
+      <td><b>${esc(a.company)}</b></td><td>${esc(a.role)}</td>
+      <td><span class="status-pill status-${esc(a.status)}">${esc(a.status)}</span></td>
+      <td class="muted">${a.deadline ? "deadline " + esc(a.deadline) + "<br>" : ""}${a.follow_up_due ? "follow-up " + esc(a.follow_up_due) : ""}</td>
+      <td><button class="ghost" onclick="delApp(${a.id})">✕</button></td>
+    </tr>`).join("")}</table>`
+    : `<div class="empty">No applications yet. Add your first one above.</div>`;
+}
+window.delApp = async (id) => { if (confirm("Delete this application?")) { await api(`/api/applications/${id}`, {method: "DELETE"}); loadApps(); } };
+
+/* JD FIT */
+$("run-fit").onclick = async () => {
+  const jd = $("fit-jd").value.trim();
+  if (jd.length < 40) return alert("Paste the full job description text.");
+  $("fit-out").innerHTML = "<p class='muted'>Analysing…</p>";
+  const r = await api("/api/fit", {method: "POST", body: JSON.stringify({jd_text: jd})});
+  lastFitId = r.analysis_id;
+  $("fit-out").innerHTML = `
+    <h3>What the JD asks for</h3>
+    <div>${r.jd_skills.map(s => `<span class="chip dim">${esc(s)}</span>`).join("") || "<span class='muted'>No skills detected</span>"}</div>
+    <h3>Covered by your profile (${r.matched.length})</h3>
+    <div>${r.matched.map(m => `<span class="chip ok">${esc(m.skill)}${m.evidence !== "profile" ? " · " + esc(m.evidence) : ""}</span>`).join("") || "<span class='muted'>None yet</span>"}</div>
+    <h3>Gaps to prep (${r.missing.length})</h3>
+    <div>${r.missing.map(s => `<span class="chip miss">${esc(s)}</span>`).join("") || "<span class='muted'>No gaps found</span>"}</div>
+    ${r.similarity !== null ? `<p class="muted" style="margin-top:10px">Semantic similarity JD ↔ your profile: <b>${r.similarity}</b> (embedding cosine — a signal, not a verdict)</p>` : ""}
+    ${r.extracted.salary_mentions?.length ? `<p class="muted">Mentioned pay: ${esc(r.extracted.salary_mentions.join("; "))}</p>` : ""}
+    ${r.extracted.experience_mentions?.length ? `<p class="muted">Experience asked: ${esc(r.extracted.experience_mentions.join("; "))}</p>` : ""}
+    <h3>Prep suggestions</h3>
+    <ul>${r.suggestions.map(s => `<li>${esc(s.text)}</li>`).join("")}</ul>
+    <details><summary>How the agent decided (trace)</summary><div class="trace">${
+      r.steps.map(s => "→ " + esc(s.detail)).join("\n")}</div></details>
+    <div style="margin-top:12px"><button class="ghost" id="ai-brief">Ask AI for a prep brief (review before send)</button></div>`;
+  $("ai-brief").onclick = () => llmPreview("gap_brief", {analysis_id: lastFitId});
+  loadFitHistory();
+};
+
+async function loadFitHistory() {
+  const rows = await api("/api/fit/history");
+  $("fit-history").innerHTML = rows.length ? rows.map(r => `
+    <div class="plan-item">
+      <b>${r.matched.length} covered · ${r.missing.length} gaps</b>
+      ${r.similarity !== null ? `<span class="chip dim">similarity ${r.similarity}</span>` : ""}
+      <div class="why">${r.missing.slice(0, 5).map(s => `<span class="chip miss">${esc(s)}</span>`).join("")}</div>
+    </div>`).join("") : `<div class="empty">No analyses yet.</div>`;
+}
+
+/* LLM preview-before-send */
+let lastFitId = null;
+
+async function llmPreview(feature, params) {
+  const body = {feature, ...params};
+  const p = await api("/api/llm/preview", {method: "POST", body: JSON.stringify(body)});
+  $("llm-system").textContent = p.system;
+  $("llm-user").textContent = p.user;
+  $("llm-result").innerHTML = "";
+  $("llm-findings").innerHTML = p.findings.length
+    ? `<p class="finding">Privacy check flagged: ${p.findings.map(f => esc(f.detail)).join("; ")}. Sending is blocked in the current privacy mode.</p>`
+    : `<p class="muted" style="font-size:13px">Privacy check: no personal data detected in this payload.</p>`;
+  $("llm-modal").classList.add("open");
+  $("llm-confirm").onclick = async () => {
+    $("llm-result").innerHTML = "<p class='muted'>Sending…</p>";
+    try {
+      const r = await api("/api/llm/send", {method: "POST", body: JSON.stringify({payload_id: p.payload_id})});
+      $("llm-result").innerHTML = `<div class="payload-box">${esc(r.text)}</div>`;
+    } catch (e) {
+      $("llm-result").innerHTML = `<p class="finding">${esc(e.message || "Send failed")}</p>`;
+    }
+  };
+}
+$("llm-cancel").onclick = () => $("llm-modal").classList.remove("open");
+
+/* INTERVIEW */
+let currentQ = null;
+$("next-q").onclick = async () => {
+  const cat = $("q-cat").value;
+  currentQ = await api("/api/interview/question" + (cat ? `?category=${cat}` : ""));
+  $("q-out").innerHTML = `
+    <div class="q-card">
+      <span class="chip dim">${esc(currentQ.category)}</span>
+      <span class="chip dim">${esc(currentQ.difficulty)}</span>
+      ${currentQ.source === "generated" ? `<span class="chip ok">from your projects</span>` : ""}
+      <p style="font-size:17px; font-weight:700; margin:10px 0">${esc(currentQ.question)}</p>
+      <label>Your answer</label>
+      <textarea id="q-answer" placeholder="Answer like you're in the interview…"></textarea>
+      <label>Rate yourself</label>
+      <div class="stars" id="q-stars">${[1,2,3,4,5].map(i => `<button data-v="${i}">★</button>`).join("")}</div>
+      <div style="margin-top:12px; display:flex; gap:10px"><button class="act" id="submit-answer">Submit & review</button>
+      <button class="ghost" id="ai-feedback">AI feedback (review before send)</button></div>
+      <div id="q-review"></div>
+    </div>`;
+  let rating = 0;
+  document.querySelectorAll("#q-stars button").forEach(b => b.onclick = () => {
+    rating = +b.dataset.v;
+    document.querySelectorAll("#q-stars button").forEach(x => x.classList.toggle("on", +x.dataset.v <= rating));
+  });
+  $("ai-feedback").onclick = () => {
+    const answer = $("q-answer").value.trim();
+    if (!answer) return alert("Write your answer first.");
+    llmPreview("answer_feedback", {question_id: currentQ.id, answer});
+  };
+  $("submit-answer").onclick = async () => {
+    const answer = $("q-answer").value.trim();
+    if (!answer) return alert("Write your answer first.");
+    const r = await api("/api/interview/answer", {method: "POST", body: JSON.stringify({
+      question_id: currentQ.id, answer_text: answer, self_rating: rating || null, mode: "mock"})});
+    $("q-review").innerHTML = `
+      <div class="points"><b>Points a strong answer covers:</b>
+        <ul>${(r.question?.model_points || []).map(p => `<li>${esc(p)}</li>`).join("")}</ul>
+        <p class="muted">LLM feedback is not connected yet — compare your answer against these points.</p>
+      </div>`;
+    loadQStats();
+  };
+};
+
+async function loadQStats() {
+  const s = await api("/api/interview/stats");
+  $("q-stats").innerHTML = s.total_sessions
+    ? `<p><b>${s.total_sessions}</b> session(s) practiced.</p>` + s.by_category.map(c =>
+        `<span class="chip dim">${esc(c.category)}: ${c.attempts}${c.avg_rating ? " · avg " + c.avg_rating.toFixed(1) + "★" : ""}</span>`).join("")
+    : `<div class="empty">No practice sessions yet. One question a day compounds.</div>`;
+}
+
+/* PROFILE */
+async function loadProfile() {
+  const p = await api("/api/profile");
+  $("pf-name").value = p.fields.name || "";
+  $("pf-headline").value = p.fields.headline || "";
+  $("pf-summary").value = p.fields.summary || "";
+  $("skill-list").innerHTML = p.skills.length ? p.skills.map(s => `
+    <span class="chip ok">${esc(s.name)} · ${esc(s.level)}${s.evidence ? " · " + esc(s.evidence) : ""}
+      <a href="#" onclick="delSkill('${esc(s.name)}');return false" style="color:inherit">✕</a></span>`).join("")
+    : `<div class="empty">Add the skills you want JDs matched against.</div>`;
+  $("project-list").innerHTML = p.projects.length ? p.projects.map(pr => `
+    <div class="plan-item"><b>${esc(pr.title)}</b>
+      <div class="why">${esc(pr.description)}</div>
+      <div class="meta">${pr.tech.map(t => `<span class="chip dim">${esc(t)}</span>`).join("")}
+        <button class="ghost" onclick="delProject(${pr.id})">✕</button></div>
+    </div>`).join("") : `<div class="empty">Add your projects — they become interview questions.</div>`;
+}
+$("save-pf").onclick = async () => {
+  await api("/api/profile/fields", {method: "PUT", body: JSON.stringify({fields: {
+    name: $("pf-name").value, headline: $("pf-headline").value, summary: $("pf-summary").value}})});
+  alert("Saved.");
+};
+$("add-skill").onclick = async () => {
+  const name = $("sk-name").value.trim();
+  if (!name) return;
+  await api("/api/profile/skills", {method: "POST", body: JSON.stringify({
+    name, level: $("sk-level").value, evidence: $("sk-evidence").value.trim()})});
+  $("sk-name").value = ""; $("sk-evidence").value = ""; loadProfile();
+};
+window.delSkill = async (name) => { await api(`/api/profile/skills/${encodeURIComponent(name)}`, {method: "DELETE"}); loadProfile(); };
+$("add-project").onclick = async () => {
+  const title = $("pj-title").value.trim();
+  if (!title) return;
+  await api("/api/profile/projects", {method: "POST", body: JSON.stringify({
+    title, description: $("pj-desc").value.trim(),
+    tech: $("pj-tech").value.split(",").map(t => t.trim()).filter(Boolean),
+    url: $("pj-url").value.trim()})});
+  ["pj-title","pj-desc","pj-tech","pj-url"].forEach(i => $(i).value = "");
+  loadProfile();
+};
+window.delProject = async (id) => { if (confirm("Delete this project?")) { await api(`/api/profile/projects/${id}`, {method: "DELETE"}); loadProfile(); } };
+
+loadTasks();
+</script>
+</body>
+</html>

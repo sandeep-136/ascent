@@ -1,0 +1,36 @@
+{
+  "annotation_notes": [
+    "2026-11-24: Initial labels under-specified skills that the text genuinely mentions. Corrected after inspecting each false positive: backend-intern mentions 'REST APIs' (REST API), ml-intern mentions 'model fine-tuning' (Fine-tuning), fullstack-sde mentions 'GitHub Actions', 'S3' and 'Lambda' explicitly. All are true mentions, so the expected_skills lists were completed rather than the extractor changed for these.",
+    "2026-11-24: Lexicon bugs fixed in the same pass (reported separately): duplicate canonical 'REST APIs' entry merged into 'REST API', and missing canonical entries added for spaCy and Full Stack.",
+    "Cases marked held_out were written after the lexicon fixes and are kept apart in the eval report."
+  ],
+  "cases": [
+    {
+      "id": "backend-intern",
+      "jd": "We are hiring a Backend Intern. You will build REST APIs in Python with FastAPI, model data in PostgreSQL, and write unit tests with pytest. Docker and Git are part of daily work.",
+      "expected_skills": ["Python", "FastAPI", "PostgreSQL", "Pytest", "Docker", "Git", "REST API"]
+    },
+    {
+      "id": "ml-intern",
+      "jd": "ML Intern: work on model fine-tuning with PyTorch, data pipelines in pandas, experiment tracking in MLflow, and deploy models with FastAPI. NLP experience with spaCy or transformers is a plus.",
+      "expected_skills": ["PyTorch", "Pandas", "MLflow", "FastAPI", "NLP", "spaCy", "Transformers", "Machine Learning", "Fine-tuning"]
+    },
+    {
+      "id": "fullstack-sde",
+      "jd": "Full Stack SDE: own features across React, TypeScript and Node.js, backed by MongoDB and Redis, deployed to AWS (ECS, S3, Lambda). We use GitHub Actions for CI/CD and Kubernetes for orchestration.",
+      "expected_skills": ["React", "TypeScript", "Node.js", "MongoDB", "Redis", "AWS", "CI/CD", "Kubernetes", "Full Stack", "GitHub Actions", "S3", "Lambda", "GitHub"]
+    },
+    {
+      "id": "data-analyst",
+      "held_out": true,
+      "jd": "Data Analyst: strong SQL and Excel, dashboards in Power BI or Tableau, and Python with pandas for analysis. We value statistics fundamentals and A/B testing experience. Looker is a plus.",
+      "expected_skills": ["SQL", "Excel", "Power BI", "Tableau", "Python", "Pandas", "Statistics", "A/B Testing", "Looker"]
+    },
+    {
+      "id": "qa-engineer",
+      "held_out": true,
+      "jd": "QA Engineer: own test automation with Selenium and Playwright, API testing with Postman, and Python scripting. Tests run in CI/CD with Jenkins; track work in Jira.",
+      "expected_skills": ["Selenium", "Playwright", "Test Automation", "Postman", "Python", "CI/CD", "Jenkins", "Jira"]
+    }
+  ]
+}

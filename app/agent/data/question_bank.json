@@ -1,0 +1,380 @@
+[
+  {
+    "category": "python",
+    "difficulty": "easy",
+    "tags": ["Python", "fundamentals"],
+    "question": "What is the difference between a list and a tuple in Python, and when would you pick each?",
+    "model_points": [
+      "Lists are mutable; tuples are immutable after creation",
+      "Tuples can be dict keys / set members because they are hashable (when their contents are)",
+      "Tuples signal fixed structure (e.g. a record or coordinate); lists signal a collection that grows or changes",
+      "Tuples have a slightly smaller memory footprint and faster iteration"
+    ]
+  },
+  {
+    "category": "python",
+    "difficulty": "medium",
+    "tags": ["Python", "decorators", "functions"],
+    "question": "Explain how a Python decorator works, and write one that times a function.",
+    "model_points": [
+      "A decorator is a callable that takes a function and returns a wrapped function",
+      "@syntax is sugar for func = decorator(func)",
+      "Uses closures: the wrapper remembers the wrapped function",
+      "functools.wraps preserves the original function's name and docstring",
+      "Timing example: record time before/after calling func, print or log the delta"
+    ]
+  },
+  {
+    "category": "python",
+    "difficulty": "medium",
+    "tags": ["Python", "concurrency", "GIL"],
+    "question": "What is the GIL and how does it affect multi-threaded Python programs?",
+    "model_points": [
+      "The Global Interpreter Lock allows only one thread to execute Python bytecode at a time in CPython",
+      "CPU-bound threads do not get parallelism from threading; use multiprocessing instead",
+      "I/O-bound work still benefits from threads because the GIL is released during I/O",
+      "asyncio is another option for I/O-bound concurrency in a single thread"
+    ]
+  },
+  {
+    "category": "python",
+    "difficulty": "medium",
+    "tags": ["Python", "generators", "memory"],
+    "question": "What are generators and why would you use one instead of building a full list?",
+    "model_points": [
+      "A generator yields items lazily, one at a time, instead of materialising the whole sequence",
+      "Constant memory for large or infinite sequences",
+      "Created with a function using yield, or a generator expression",
+      "Composable in pipelines: each stage processes one item at a time"
+    ]
+  },
+  {
+    "category": "python",
+    "difficulty": "easy",
+    "tags": ["Python", "data structures"],
+    "question": "How does a Python dict work internally, and what is its average lookup time?",
+    "model_points": [
+      "Hash table: keys are hashed to find a slot",
+      "Average O(1) lookup, insert and delete; worst case degrades with collisions",
+      "Collisions handled by open addressing in CPython",
+      "Since Python 3.7 dicts preserve insertion order"
+    ]
+  },
+  {
+    "category": "sql",
+    "difficulty": "easy",
+    "tags": ["SQL", "joins"],
+    "question": "Explain the difference between INNER JOIN, LEFT JOIN and FULL OUTER JOIN with an example.",
+    "model_points": [
+      "INNER JOIN returns only rows with a match in both tables",
+      "LEFT JOIN returns all rows from the left table, NULLs where the right has no match",
+      "FULL OUTER JOIN returns all rows from both sides, NULLs on the non-matching side",
+      "Concrete example: customers LEFT JOIN orders finds customers with no orders (WHERE o.id IS NULL)"
+    ]
+  },
+  {
+    "category": "sql",
+    "difficulty": "medium",
+    "tags": ["SQL", "indexes", "performance"],
+    "question": "What is a database index, and when can adding one hurt performance?",
+    "model_points": [
+      "An index is an auxiliary structure (usually a B-tree) that speeds up row lookup on the indexed columns",
+      "Reads get faster; writes get slower because every INSERT/UPDATE also updates the index",
+      "Indexes consume storage",
+      "Too many indexes, or indexes on low-cardinality columns, add cost without helping queries",
+      "Use EXPLAIN to check whether a query actually uses an index"
+    ]
+  },
+  {
+    "category": "sql",
+    "difficulty": "medium",
+    "tags": ["SQL", "aggregation", "window functions"],
+    "question": "How would you find the second-highest salary in a table? Give at least two approaches.",
+    "model_points": [
+      "DENSE_RANK or ROW_NUMBER window function ordered by salary DESC, filter rank 2",
+      "MAX(salary) WHERE salary < (SELECT MAX(salary) ...)",
+      "ORDER BY salary DESC LIMIT 1 OFFSET 1 (and why this breaks on ties)",
+      "Discuss tie behaviour explicitly - that is what the interviewer is probing"
+    ]
+  },
+  {
+    "category": "sql",
+    "difficulty": "medium",
+    "tags": ["SQL", "transactions", "ACID"],
+    "question": "What are ACID properties and what problem do transactions solve?",
+    "model_points": [
+      "Atomicity: all statements succeed or none do",
+      "Consistency: constraints hold before and after",
+      "Isolation: concurrent transactions do not see each other's partial work",
+      "Durability: committed data survives crashes",
+      "Example: money transfer must debit and credit together or not at all"
+    ]
+  },
+  {
+    "category": "sql",
+    "difficulty": "hard",
+    "tags": ["SQL", "normalization", "design"],
+    "question": "Explain normalisation. When would you deliberately denormalise?",
+    "model_points": [
+      "1NF: atomic values; 2NF: no partial dependency on a composite key; 3NF: no transitive dependencies",
+      "Normalisation removes redundancy and update anomalies",
+      "Denormalise for read-heavy paths where joins are the bottleneck, accepting controlled redundancy",
+      "Mention trade-off: faster reads vs harder writes and consistency management"
+    ]
+  },
+  {
+    "category": "dsa",
+    "difficulty": "easy",
+    "tags": ["Data Structures", "Arrays", "Two pointers"],
+    "question": "Given a sorted array, find two numbers that add up to a target. What is the optimal approach?",
+    "model_points": [
+      "Two pointers: one at start, one at end",
+      "If the sum is too small move the left pointer right; too large move the right pointer left",
+      "O(n) time, O(1) space, exploiting the sorted order",
+      "Contrast with the hash-map approach for the unsorted version"
+    ]
+  },
+  {
+    "category": "dsa",
+    "difficulty": "medium",
+    "tags": ["Data Structures", "Hash maps"],
+    "question": "How would you detect a cycle in a linked list? Can you do it in O(1) space?",
+    "model_points": [
+      "Hash set of visited nodes: O(n) time, O(n) space",
+      "Floyd's tortoise and hare: slow and fast pointers; if they meet, there is a cycle",
+      "O(n) time, O(1) space for Floyd's",
+      "Can extend to find the cycle start: reset one pointer to head, move both at speed 1"
+    ]
+  },
+  {
+    "category": "dsa",
+    "difficulty": "medium",
+    "tags": ["Data Structures", "Trees", "BFS", "DFS"],
+    "question": "Compare BFS and DFS on a binary tree. When is each the better choice?",
+    "model_points": [
+      "BFS visits level by level using a queue; DFS dives deep using a stack or recursion",
+      "BFS finds the shortest path in an unweighted graph and is good for 'closest' queries",
+      "DFS uses less memory on wide trees and suits exhaustive search or topological ordering",
+      "Space: BFS O(width), DFS O(height)"
+    ]
+  },
+  {
+    "category": "dsa",
+    "difficulty": "medium",
+    "tags": ["Data Structures", "Dynamic programming"],
+    "question": "What is dynamic programming? Walk through how you would solve the coin-change problem.",
+    "model_points": [
+      "DP solves problems with overlapping subproblems and optimal substructure",
+      "Define state: dp[x] = fewest coins to make amount x",
+      "Transition: dp[x] = min(dp[x - coin] + 1) over all coins",
+      "Base case dp[0] = 0; answer dp[target] or 'not possible'",
+      "Mention memoisation (top-down) vs tabulation (bottom-up)"
+    ]
+  },
+  {
+    "category": "dsa",
+    "difficulty": "easy",
+    "tags": ["Data Structures", "Complexity"],
+    "question": "What is Big-O notation, and what are the complexities of common operations on arrays vs linked lists?",
+    "model_points": [
+      "Big-O describes how running time or space grows with input size, worst case",
+      "Array: O(1) index access, O(n) search, O(n) insert/delete in the middle",
+      "Linked list: O(n) access, O(1) insert/delete if you hold the node",
+      "Mention that constants and cache behaviour matter in practice"
+    ]
+  },
+  {
+    "category": "web",
+    "difficulty": "easy",
+    "tags": ["JavaScript", "React"],
+    "question": "What are React hooks, and what rules must they follow?",
+    "model_points": [
+      "Hooks let function components use state and lifecycle features (useState, useEffect, ...)",
+      "Only call hooks at the top level - never inside loops, conditions or nested functions",
+      "Only call hooks from React functions (components or custom hooks)",
+      "The rules exist because React matches hooks to state by call order"
+    ]
+  },
+  {
+    "category": "web",
+    "difficulty": "medium",
+    "tags": ["JavaScript", "async"],
+    "question": "Explain the JavaScript event loop. What is the difference between microtasks and macrotasks?",
+    "model_points": [
+      "JS runs one call stack; async work is queued and runs when the stack empties",
+      "Microtasks (Promise .then, queueMicrotask) run right after the current script, before rendering",
+      "Macrotasks (setTimeout, I/O, events) run one per loop iteration",
+      "All pending microtasks drain before the next macrotask - this explains Promise vs setTimeout ordering"
+    ]
+  },
+  {
+    "category": "web",
+    "difficulty": "medium",
+    "tags": ["JavaScript", "HTTP", "REST API"],
+    "question": "What makes an API RESTful? Explain the main HTTP methods and status-code families.",
+    "model_points": [
+      "Resources identified by URLs; operations via HTTP methods (GET read, POST create, PUT/PATCH update, DELETE)",
+      "Stateless: each request carries what the server needs",
+      "2xx success, 3xx redirect, 4xx client error, 5xx server error",
+      "Idempotency: GET/PUT/DELETE are idempotent, POST is not"
+    ]
+  },
+  {
+    "category": "web",
+    "difficulty": "medium",
+    "tags": ["React", "performance"],
+    "question": "A React list re-renders too often. How do you diagnose and fix it?",
+    "model_points": [
+      "Check why props change: new object/array identities each render defeat memoisation",
+      "React.memo for pure child components; useMemo/useCallback to stabilise values",
+      "Stable, meaningful key props - not array indexes when the list reorders",
+      "Use the React DevTools profiler to confirm which components render and why"
+    ]
+  },
+  {
+    "category": "ml",
+    "difficulty": "easy",
+    "tags": ["Machine Learning", "fundamentals"],
+    "question": "What is overfitting, and how do you detect and reduce it?",
+    "model_points": [
+      "The model memorises training data and generalises poorly to unseen data",
+      "Detect: large gap between training and validation performance",
+      "Reduce: more data, regularisation, simpler model, early stopping, dropout, cross-validation",
+      "Always evaluate on a held-out test set used once"
+    ]
+  },
+  {
+    "category": "ml",
+    "difficulty": "medium",
+    "tags": ["NLP", "Embeddings"],
+    "question": "What are text embeddings, and why is cosine similarity used to compare them?",
+    "model_points": [
+      "Embeddings map text to dense vectors where similar meanings land near each other",
+      "Produced by trained models (e.g. sentence transformers)",
+      "Cosine similarity compares direction, not magnitude, so document length does not dominate",
+      "Used for semantic search: embed the query, rank passages by cosine"
+    ]
+  },
+  {
+    "category": "ml",
+    "difficulty": "medium",
+    "tags": ["RAG", "LLM", "NLP"],
+    "question": "Explain retrieval-augmented generation. Why not just put everything in the prompt?",
+    "model_points": [
+      "RAG retrieves the most relevant passages for a query and gives only those to the LLM",
+      "Context windows are limited and stuffing them is expensive and less accurate",
+      "Retrieval grounds answers in a specific source, which enables citations",
+      "Quality depends on retrieval: if the right passage is not retrieved, the model cannot use it - so retrieval must be evaluated separately"
+    ]
+  },
+  {
+    "category": "ml",
+    "difficulty": "medium",
+    "tags": ["Machine Learning", "evaluation"],
+    "question": "Why can accuracy be a misleading metric, and what would you use instead for imbalanced classes?",
+    "model_points": [
+      "With 99% negative examples, always predicting negative scores 99% accuracy",
+      "Precision: of predicted positives, how many are real",
+      "Recall: of real positives, how many were found",
+      "F1 balances both; ROC-AUC / PR-AUC summarise across thresholds",
+      "Pick the metric from the cost of false positives vs false negatives"
+    ]
+  },
+  {
+    "category": "ml",
+    "difficulty": "hard",
+    "tags": ["LLM", "evaluation", "RAG"],
+    "question": "How would you evaluate an LLM feature that answers questions from documents?",
+    "model_points": [
+      "Split the problem: evaluate retrieval (did we fetch the right passage?) separately from generation",
+      "Build a labelled fixture of questions with known source passages",
+      "Measure retrieval hit-rate at k; measure whether answers cite real passages",
+      "Check behaviour on unanswerable questions - the system should say it does not know",
+      "Name the limits: a small fixture measures only what it contains"
+    ]
+  },
+  {
+    "category": "cs",
+    "difficulty": "medium",
+    "tags": ["System Design", "APIs"],
+    "question": "Design a URL shortener. Walk through the main components and the database schema.",
+    "model_points": [
+      "Write path: generate a short code (counter encoded in base62, or hash + collision check), store code -> URL",
+      "Read path: redirect via the code; cache hot codes",
+      "Schema: id/code, long_url, created_at, maybe expiry and click count",
+      "Discuss scale: reads dominate, so cache and a simple key-value store work well"
+    ]
+  },
+  {
+    "category": "cs",
+    "difficulty": "medium",
+    "tags": ["Operating Systems", "processes"],
+    "question": "What is the difference between a process and a thread?",
+    "model_points": [
+      "A process has its own memory space; threads share the process's memory",
+      "Context switching between processes is heavier than between threads",
+      "Threads communicate cheaply but need synchronisation (locks) to avoid races",
+      "A crash in one thread can take down the whole process"
+    ]
+  },
+  {
+    "category": "cs",
+    "difficulty": "easy",
+    "tags": ["Git", "tools"],
+    "question": "Explain git merge vs rebase. When would you avoid rebasing?",
+    "model_points": [
+      "Merge creates a merge commit combining two histories; rebase replays your commits on top of the target branch",
+      "Rebase gives a linear, cleaner history but rewrites commit hashes",
+      "Never rebase commits that are already pushed and shared - it forces everyone else to reconcile",
+      "Merge is safer for shared branches; rebase is good for cleaning up your own feature branch"
+    ]
+  },
+  {
+    "category": "behavioral",
+    "difficulty": "easy",
+    "tags": ["Communication", "Teamwork"],
+    "question": "Tell me about a time you disagreed with a teammate on a technical decision. What did you do?",
+    "model_points": [
+      "Use a real situation with a clear structure: context, the disagreement, your action, the outcome",
+      "Show you argued from evidence, not ego - you compared options or prototyped",
+      "Show you stayed open: you could be convinced, and the decision was recorded",
+      "End with what you learned or would repeat"
+    ]
+  },
+  {
+    "category": "behavioral",
+    "difficulty": "easy",
+    "tags": ["Ownership", "Problem Solving"],
+    "question": "Describe a bug that took you a long time to find. How did you track it down?",
+    "model_points": [
+      "Pick a real bug and make the debugging process the story",
+      "Show systematic narrowing: reproduce reliably, isolate, form and test hypotheses",
+      "Name the tools you used (logs, debugger, bisecting)",
+      "Say what you changed afterwards so the class of bug is caught earlier"
+    ]
+  },
+  {
+    "category": "behavioral",
+    "difficulty": "easy",
+    "tags": ["Time Management", "Adaptability"],
+    "question": "How do you handle multiple deadlines at once? Give a real example.",
+    "model_points": [
+      "Describe how you made the priority order explicit (deadline, impact, dependencies)",
+      "Show you communicated early when something was at risk rather than going silent",
+      "Concrete example with the trade-off you made and the result",
+      "Mention the system you use to keep track (list, calendar, daily plan)"
+    ]
+  },
+  {
+    "category": "behavioral",
+    "difficulty": "easy",
+    "tags": ["Leadership", "Mentoring"],
+    "question": "Tell me about a project you are proud of. What was your specific contribution?",
+    "model_points": [
+      "Choose a project you can discuss deeply, not the biggest-sounding one",
+      "Be precise about what you personally designed, built and decided",
+      "Quantify only what you can back up; skip invented metrics",
+      "Include a hard moment and how you handled it - that is what makes it credible"
+    ]
+  }
+]

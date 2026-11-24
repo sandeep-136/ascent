@@ -1,0 +1,10 @@
+fastapi>=0.110
+uvicorn[standard]>=0.29
+pydantic>=2.6
+numpy>=1.26
+scikit-learn>=1.4
+onnxruntime>=1.17
+tokenizers>=0.15
+requests>=2.31
+gnani-vachana[llm]>=0.1; python_version >= "3.10"
+pytest>=8.0
