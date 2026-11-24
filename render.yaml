@@ -1,0 +1,17 @@
+# Render Blueprint for the PRIVATE Ascent instance.
+# The public demo service (ascent-0fud) is managed separately in the dashboard.
+# Secret env values are entered at blueprint apply time (sync: false), never committed.
+services:
+  - type: web
+    name: ascent-private
+    runtime: docker
+    plan: free
+    envVars:
+      - key: ASCENT_SECURE_COOKIE
+        value: "1"
+      - key: TURSO_DATABASE_URL
+        value: libsql://ascent-private-sandeep-136.aws-ap-south-1.turso.io
+      - key: TURSO_AUTH_TOKEN
+        sync: false
+      - key: ASCENT_BOOTSTRAP_TOKEN
+        sync: false
