@@ -104,6 +104,8 @@
     border-radius: 12px; padding: 13px 16px; margin: 10px 0;
   }
   .plan-item .why { font-size: 12.5px; color: var(--ink-soft); margin-top: 3px; }
+  .fit-open { cursor: pointer; }
+  .fit-open:hover { border-left-color: var(--accent); }
   .plan-item .meta { display: flex; gap: 8px; align-items: center; margin-top: 9px; flex-wrap: wrap; }
   .chip {
     display: inline-block; padding: 3px 11px; border-radius: 99px; font-size: 12px;
@@ -277,6 +279,7 @@
   </div>
   <div class="card">
     <h2>Past analyses</h2>
+    <p class="muted">Tap one to reopen it, or re-run it against your current profile to watch gaps close.</p>
     <div id="fit-history"></div>
   </div>
 </section>
@@ -532,38 +535,59 @@ async function loadApps() {
 window.delApp = async (id) => { if (confirm("Delete this application?")) { await api(`/api/applications/${id}`, {method: "DELETE"}); loadApps(); } };
 
 /* JD FIT */
+function renderFit(r, opts = {}) {
+  return `
+    ${opts.fromHistory ? `<p class="muted">Saved analysis from ${new Date(r.created_at * 1000).toLocaleString()} — reopened from history, not a new run.</p>` : ""}
+    ${r.jd_skills ? `<h3>What the JD asks for</h3>
+    <div>${r.jd_skills.map(s => `<span class="chip dim">${esc(s)}</span>`).join("") || "<span class='muted'>No skills detected</span>"}</div>` : ""}
+    <h3>Covered by your profile (${r.matched.length})</h3>
+    <div>${r.matched.map(m => `<span class="chip ok">${esc(m.skill)}${m.evidence !== "profile" ? " · " + esc(m.evidence) : ""}</span>`).join("") || "<span class='muted'>None yet</span>"}</div>
+    <h3>Gaps to prep (${r.missing.length})</h3>
+    <div>${r.missing.map(s => `<span class="chip miss">${esc(s)}</span>`).join("") || "<span class='muted'>No gaps found</span>"}</div>
+    ${r.similarity !== null && r.similarity !== undefined ? `<p class="muted" style="margin-top:10px">Semantic similarity JD ↔ your profile: <b>${r.similarity}</b> (embedding cosine — a signal, not a verdict)</p>` : ""}
+    ${r.extracted?.salary_mentions?.length ? `<p class="muted">Mentioned pay: ${esc(r.extracted.salary_mentions.join("; "))}</p>` : ""}
+    ${r.extracted?.experience_mentions?.length ? `<p class="muted">Experience asked: ${esc(r.extracted.experience_mentions.join("; "))}</p>` : ""}
+    <h3>Prep suggestions</h3>
+    <ul>${(r.suggestions || []).map(s => `<li>${esc(s.text)}</li>`).join("")}</ul>
+    ${r.steps ? `<details><summary>How the agent decided (trace)</summary><div class="trace">${
+      r.steps.map(s => "→ " + esc(s.detail)).join("\n")}</div></details>` : ""}
+    <div style="margin-top:12px">
+      ${opts.fromHistory
+        ? `<button class="act" id="refit">Re-analyse with current profile</button>`
+        : `<button class="ghost" id="ai-brief">Ask AI for a prep brief (review before send)</button>`}
+    </div>`;
+}
+
 $("run-fit").onclick = async () => {
   const jd = $("fit-jd").value.trim();
   if (jd.length < 40) return alert("Paste the full job description text.");
   $("fit-out").innerHTML = "<p class='muted'>Analysing…</p>";
   const r = await api("/api/fit", {method: "POST", body: JSON.stringify({jd_text: jd})});
   lastFitId = r.analysis_id;
-  $("fit-out").innerHTML = `
-    <h3>What the JD asks for</h3>
-    <div>${r.jd_skills.map(s => `<span class="chip dim">${esc(s)}</span>`).join("") || "<span class='muted'>No skills detected</span>"}</div>
-    <h3>Covered by your profile (${r.matched.length})</h3>
-    <div>${r.matched.map(m => `<span class="chip ok">${esc(m.skill)}${m.evidence !== "profile" ? " · " + esc(m.evidence) : ""}</span>`).join("") || "<span class='muted'>None yet</span>"}</div>
-    <h3>Gaps to prep (${r.missing.length})</h3>
-    <div>${r.missing.map(s => `<span class="chip miss">${esc(s)}</span>`).join("") || "<span class='muted'>No gaps found</span>"}</div>
-    ${r.similarity !== null ? `<p class="muted" style="margin-top:10px">Semantic similarity JD ↔ your profile: <b>${r.similarity}</b> (embedding cosine — a signal, not a verdict)</p>` : ""}
-    ${r.extracted.salary_mentions?.length ? `<p class="muted">Mentioned pay: ${esc(r.extracted.salary_mentions.join("; "))}</p>` : ""}
-    ${r.extracted.experience_mentions?.length ? `<p class="muted">Experience asked: ${esc(r.extracted.experience_mentions.join("; "))}</p>` : ""}
-    <h3>Prep suggestions</h3>
-    <ul>${r.suggestions.map(s => `<li>${esc(s.text)}</li>`).join("")}</ul>
-    <details><summary>How the agent decided (trace)</summary><div class="trace">${
-      r.steps.map(s => "→ " + esc(s.detail)).join("\n")}</div></details>
-    <div style="margin-top:12px"><button class="ghost" id="ai-brief">Ask AI for a prep brief (review before send)</button></div>`;
+  $("fit-out").innerHTML = renderFit(r);
   lockDynamic();
   $("ai-brief").onclick = () => llmPreview("gap_brief", {analysis_id: lastFitId});
   loadFitHistory();
 };
 
+window.openFit = async (id) => {
+  $("fit-out").innerHTML = "<p class='muted'>Loading…</p>";
+  const r = await api(`/api/fit/${id}`);
+  $("fit-out").innerHTML = renderFit(r, {fromHistory: true});
+  lockDynamic();
+  $("refit").onclick = () => { $("fit-jd").value = r.jd_text; $("run-fit").click(); };
+  $("fit-out").scrollIntoView({behavior: "smooth", block: "nearest"});
+};
+
 async function loadFitHistory() {
   const rows = await api("/api/fit/history");
   $("fit-history").innerHTML = rows.length ? rows.map(r => `
-    <div class="plan-item">
+    <div class="plan-item fit-open" onclick="openFit(${r.id})">
       <b>${r.matched.length} covered · ${r.missing.length} gaps</b>
+      <span class="chip dim">${new Date(r.created_at * 1000).toLocaleDateString()}</span>
       ${r.similarity !== null ? `<span class="chip dim">similarity ${r.similarity}</span>` : ""}
+      ${r.progress && r.progress.closed.length ? `<div class="why"><span class="chip ok">closed since last run: ${esc(r.progress.closed.join(", "))}</span></div>` : ""}
+      ${r.progress && r.progress.new.length ? `<div class="why"><span class="chip miss">new gaps: ${esc(r.progress.new.join(", "))}</span></div>` : ""}
       <div class="why">${r.missing.slice(0, 5).map(s => `<span class="chip miss">${esc(s)}</span>`).join("")}</div>
     </div>`).join("") : `<div class="empty">No analyses yet.</div>`;
 }

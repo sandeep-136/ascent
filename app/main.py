@@ -464,12 +464,39 @@ def analyze_fit(body: FitIn):
 def fit_history():
     c = conn()
     try:
-        rows = db.query(c, "SELECT id, application_id, matched, missing, similarity, "
-                           "created_at FROM jd_analysis ORDER BY created_at DESC LIMIT 20")
+        rows = db.query(c, "SELECT id, application_id, jd_text, matched, missing, similarity, "
+                           "created_at FROM jd_analysis "
+                           "ORDER BY created_at DESC, id DESC LIMIT 50")
         for r in rows:
             r["matched"] = json.loads(r["matched"] or "[]")
             r["missing"] = json.loads(r["missing"] or "[]")
+        # Gap progress: for each run, diff its gaps against the previous run
+        # of the same JD text (re-analysis after a profile update shows what
+        # closed and what newly appeared).
+        prev_missing: dict[str, set] = {}
+        for r in reversed(rows):  # oldest first
+            cur = set(r["missing"])
+            prev = prev_missing.get(r["jd_text"])
+            r["progress"] = ({"closed": sorted(prev - cur), "new": sorted(cur - prev)}
+                             if prev is not None else None)
+            prev_missing[r["jd_text"]] = cur
+            del r["jd_text"]
         return rows
+    finally:
+        c.close()
+
+
+@app.get("/api/fit/{analysis_id}")
+def fit_detail(analysis_id: int):
+    c = conn()
+    try:
+        row = db.get(c, "jd_analysis", analysis_id)
+        if not row:
+            raise HTTPException(404, "analysis not found")
+        row["extracted"] = json.loads(row["extracted"] or "{}")
+        for k in ("matched", "missing", "suggestions"):
+            row[k] = json.loads(row[k] or "[]")
+        return row
     finally:
         c.close()
 

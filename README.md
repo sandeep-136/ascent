@@ -31,7 +31,13 @@ A project by Sandeep Sagar
   the text), matches them against your profile, lists the gaps, and routes
   each gap to interview-question categories to practice. An embedding
   cosine between the JD and your profile summary is shown as a labeled
-  signal, not a verdict.
+  signal, not a verdict. Past analyses stay reopenable, and re-running
+  the same JD after a profile update shows which gaps closed and which
+  are new.
+
+<p>
+  <img src="docs/screenshots/fit-history.png" alt="Ascent - JD fit history: re-running the same job description against an updated profile shows the gap that closed" width="720">
+</p>
 - **Mock interviews** — a curated question bank (Python, SQL, DSA, web, ML,
   CS fundamentals, behavioral) plus questions generated from the projects
   in your profile. Answers are recorded with a self-rating so you can see
