@@ -84,8 +84,13 @@ def regenerate_project_questions(conn: sqlite3.Connection) -> int:
 
 
 def pick_question(conn: sqlite3.Connection, category: str | None = None,
-                  exclude_recent: int = 10) -> dict | None:
-    """Pick a question, avoiding the ones practiced most recently."""
+                  tag: str | None = None, exclude_recent: int = 10) -> dict | None:
+    """Pick a question, avoiding the ones practiced most recently.
+
+    When tag is given, questions carrying that tag are preferred; if none
+    match (or the bank has no such tag), the category pool is used as-is,
+    so a tag never strands the user with no question.
+    """
     recent = db.query(
         conn,
         "SELECT question_id FROM practice_session ORDER BY created_at DESC LIMIT ?",
@@ -98,6 +103,12 @@ def pick_question(conn: sqlite3.Connection, category: str | None = None,
     fresh = [r for r in rows if r["id"] not in recent_ids] or rows
     if not fresh:
         return None
+    if tag:
+        wanted = tag.strip().lower()
+        tagged = [r for r in fresh
+                  if wanted in [t.lower() for t in json.loads(r["tags"] or "[]")]]
+        if tagged:
+            fresh = tagged
     row = dict(random.choice(fresh))
     row["tags"] = json.loads(row["tags"] or "[]")
     row["model_points"] = json.loads(row["model_points"] or "[]")

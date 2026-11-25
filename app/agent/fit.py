@@ -34,7 +34,10 @@ _SKILL_TO_CATEGORY = {
     "LLM": "ml", "LLMs": "ml", "RAG": "ml", "Transformers": "ml",
     "Data Structures": "dsa", "Algorithms": "dsa", "System Design": "cs",
     "OOP": "cs", "Design Patterns": "cs", "Operating Systems": "cs",
-    "Docker": "cs", "Kubernetes": "cs", "Git": "cs", "CI/CD": "cs",
+    "Git": "cs",
+    # Docker/Kubernetes/CI/CD intentionally unmapped: the question bank has
+    # no questions for them, so they get the honest study suggestion instead
+    # of a practice route that cannot deliver matching questions.
 }
 
 
@@ -83,6 +86,10 @@ def _similarity(jd_text: str, profile: dict) -> float | None:
         return None
 
 
+_CAT_LABEL = {"python": "Python", "sql": "SQL", "dsa": "DSA", "web": "web",
+              "ml": "ML", "cs": "CS", "behavioral": "behavioral", "project": "project"}
+
+
 def _suggestions(missing: list[str]) -> list[dict]:
     out = []
     for skill in missing[:5]:
@@ -90,8 +97,9 @@ def _suggestions(missing: list[str]) -> list[dict]:
         if cat:
             out.append({
                 "skill": skill, "kind": "practice",
-                "text": f"Practice {cat} questions tagged '{skill}' in Interview mode.",
-                "category": cat,
+                "text": f"The JD asks for {skill}. "
+                        f"Practice {_CAT_LABEL.get(cat, cat)} questions in Interview mode.",
+                "category": cat, "tag": skill,
             })
         else:
             out.append({

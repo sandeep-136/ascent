@@ -504,10 +504,10 @@ def fit_detail(analysis_id: int):
 # ---------- interview practice ----------
 
 @app.get("/api/interview/question")
-def get_question(category: str | None = None):
+def get_question(category: str | None = None, tag: str | None = None):
     c = conn()
     try:
-        q = interview.pick_question(c, category)
+        q = interview.pick_question(c, category, tag)
         if not q:
             raise HTTPException(404, "no questions available")
         return q

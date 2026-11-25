@@ -80,3 +80,10 @@ def test_validation():
     assert client.post("/api/interview/answer", json={
         "question_id": 99999, "answer_text": "x"}).status_code == 404
     assert client.post("/api/tasks/99999/done").status_code == 404
+
+
+def test_question_tag_param():
+    # tag the bank lacks falls back to the category pool (never a dead end)
+    r = client.get("/api/interview/question", params={"category": "sql", "tag": "PostgreSQL"})
+    assert r.status_code == 200
+    assert r.json()["category"] == "sql"

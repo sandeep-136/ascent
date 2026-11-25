@@ -1,3 +1,4 @@
+import json
 import os
 import sys
 import tempfile
@@ -55,6 +56,36 @@ def test_fit_matches_and_gaps():
     row = db.get(conn, "jd_analysis", result["analysis_id"])
     assert row and row["application_id"] is None
     assert result["agent_run_id"]
+
+
+def test_fit_suggestions_are_honest_and_routable():
+    conn = fresh_conn()
+    seed_profile(conn)
+    result = fit.analyze(conn, JD)
+    by_skill = {s["skill"]: s for s in result["suggestions"]}
+    # the bank has no Docker questions: honest study suggestion, not a
+    # practice route that cannot deliver matching questions
+    assert by_skill["Docker"]["kind"] == "study"
+    # practice suggestions name the category and carry a tag for the picker
+    pg = by_skill["PostgreSQL"]
+    assert pg["kind"] == "practice" and pg["category"] == "sql"
+    assert pg["tag"] == "PostgreSQL"
+    assert "tagged" not in pg["text"]
+
+
+def test_pick_question_prefers_tag_with_fallback():
+    conn = fresh_conn()
+    for q, tags in [("Tell me about indexes.", ["SQL", "indexes"]),
+                    ("Explain window functions.", ["SQL", "window functions"])]:
+        db.insert(conn, "question", {
+            "category": "sql", "difficulty": "medium", "tags": json.dumps(tags),
+            "question": q, "model_points": "[]", "source": "bank"})
+    # a tag present in the bank always yields the tagged question
+    for _ in range(5):
+        picked = interview.pick_question(conn, "sql", tag="indexes")
+        assert picked["question"] == "Tell me about indexes."
+    # a tag the bank does not have still returns a category question
+    assert interview.pick_question(conn, "sql", tag="PostgreSQL") is not None
 
 
 def test_fit_empty_profile_reports_everything_missing():

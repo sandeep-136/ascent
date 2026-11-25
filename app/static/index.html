@@ -548,7 +548,7 @@ function renderFit(r, opts = {}) {
     ${r.extracted?.salary_mentions?.length ? `<p class="muted">Mentioned pay: ${esc(r.extracted.salary_mentions.join("; "))}</p>` : ""}
     ${r.extracted?.experience_mentions?.length ? `<p class="muted">Experience asked: ${esc(r.extracted.experience_mentions.join("; "))}</p>` : ""}
     <h3>Prep suggestions</h3>
-    <ul>${(r.suggestions || []).map(s => `<li>${esc(s.text)}</li>`).join("")}</ul>
+    <ul>${(r.suggestions || []).map(s => `<li>${esc(s.text)}${s.kind === "practice" && s.category ? ` <button class="ghost" style="padding:2px 10px; font-size:12px; margin-left:6px" onclick='practiceGap(${JSON.stringify(s.category)}, ${JSON.stringify(s.tag || "")})'>Practice</button>` : ""}</li>`).join("")}</ul>
     ${r.steps ? `<details><summary>How the agent decided (trace)</summary><div class="trace">${
       r.steps.map(s => "→ " + esc(s.detail)).join("\n")}</div></details>` : ""}
     <div style="margin-top:12px">
@@ -619,9 +619,16 @@ $("llm-cancel").onclick = () => $("llm-modal").classList.remove("open");
 
 /* INTERVIEW */
 let currentQ = null;
-$("next-q").onclick = async () => {
-  const cat = $("q-cat").value;
-  currentQ = await api("/api/interview/question" + (cat ? `?category=${cat}` : ""));
+window.practiceGap = (cat, tag) => {
+  document.querySelector('[data-tab="interview"]').click();
+  $("q-cat").value = cat || "";
+  showQuestion(cat, tag);
+};
+async function showQuestion(cat, tag) {
+  const params = [];
+  if (cat) params.push(`category=${encodeURIComponent(cat)}`);
+  if (tag) params.push(`tag=${encodeURIComponent(tag)}`);
+  currentQ = await api("/api/interview/question" + (params.length ? "?" + params.join("&") : ""));
   $("q-out").innerHTML = `
     <div class="q-card">
       <span class="chip dim">${esc(currentQ.category)}</span>
@@ -659,7 +666,8 @@ $("next-q").onclick = async () => {
       </div>`;
     loadQStats();
   };
-};
+}
+$("next-q").onclick = () => showQuestion($("q-cat").value);
 
 /* MOCK SESSION */
 let ms = null;
