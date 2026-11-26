@@ -11,16 +11,21 @@ these rules alone.
 
 Rules (score order):
   1. Interview within 2 days            -> prepare, highest priority
+     Interview passed, still 'upcoming' -> log the outcome
   2. Application/OA deadline within 3d  -> finish the application
+     Deadline passed, never applied     -> escalate: apply late or drop
   3. Follow-up due or overdue           -> follow up (draft only)
   4. Applied 7+ days ago, no follow-up  -> suggest a follow-up
   5. Open user-created tasks by due date
-  6. Quiet day fallback: skill-gap prep from the latest JD analysis,
-     or one mock-interview question
+  6. Quiet day fallback: prep the skill missing most often across recent
+     JD analyses, and practice the interview category whose sessions are
+     stalest (or whose self-ratings are weakest on ties)
 """
 
 import datetime as dt
+import json
 import sqlite3
+from collections import Counter
 
 from .. import db
 
@@ -28,6 +33,11 @@ MAX_PLAN_ITEMS = 6
 FOLLOW_UP_AFTER_DAYS = 7
 INTERVIEW_PREP_WINDOW_DAYS = 2
 DEADLINE_WINDOW_DAYS = 3
+RECENT_ANALYSES = 5
+
+CATEGORY_LABELS = {"python": "Python", "sql": "SQL", "dsa": "DSA", "web": "Web",
+                   "ml": "ML", "cs": "CS", "behavioral": "Behavioral",
+                   "project": "Project"}
 
 
 def _parse_date(value):
@@ -43,6 +53,37 @@ def _days_until(day, today):
     return (day - today).days if day else None
 
 
+def _practice_target(conn: sqlite3.Connection, today: dt.date) -> dict | None:
+    """Pick the practice category needing attention most, with the reason.
+
+    Stalest category wins (days since last session); ties break toward the
+    weakest recent self-ratings. Returns None when nothing is stale (e.g.
+    everything practiced today, or no sessions recorded yet).
+    """
+    rows = db.query(conn, """
+        SELECT q.category AS category, MAX(s.created_at) AS last_at,
+               AVG(s.self_rating) AS avg_rating
+        FROM practice_session s JOIN question q ON q.id = s.question_id
+        GROUP BY q.category""")
+    best: tuple | None = None
+    for r in rows:
+        last = dt.datetime.fromtimestamp(r["last_at"]).date()
+        stale = (today - last).days
+        if stale <= 0:
+            continue
+        key = (-stale, r["avg_rating"] or 0)
+        if best is None or key < best[0]:
+            best = (key, r["category"], stale, r["avg_rating"])
+    if best is None:
+        return None
+    _, cat, stale, avg = best
+    label = CATEGORY_LABELS.get(cat, cat)
+    why = f"no {label} practice in {stale} day(s)"
+    if avg:
+        why += f", recent self-ratings average {avg:.1f}/5"
+    return {"category": cat, "label": label, "why": why + "."}
+
+
 def build_plan(conn: sqlite3.Connection, today: dt.date | None = None) -> dict:
     """Compute the plan and return it with the full decision trace."""
     today = today or dt.date.today()
@@ -52,19 +93,29 @@ def build_plan(conn: sqlite3.Connection, today: dt.date | None = None) -> dict:
     applications = db.query(conn, "SELECT * FROM application WHERE status NOT IN ('rejected','withdrawn')")
     interviews = db.query(conn, "SELECT * FROM interview_event WHERE status = 'upcoming'")
     open_tasks = db.query(conn, "SELECT * FROM task WHERE status = 'open'")
-    latest_analysis = db.query(
-        conn, "SELECT * FROM jd_analysis ORDER BY created_at DESC LIMIT 1")
     steps.append({
         "step": "read_state",
         "detail": f"Read {len(applications)} open application(s), {len(interviews)} upcoming "
                   f"interview(s), {len(open_tasks)} open task(s).",
     })
 
-    # Rule 1: upcoming interviews
+    # Rule 1: upcoming interviews (and past ones still awaiting an outcome)
     for iv in interviews:
         day = _parse_date(iv["scheduled_at"])
         d = _days_until(day, today)
-        if d is not None and 0 <= d <= INTERVIEW_PREP_WINDOW_DAYS:
+        if d is not None and d < 0:
+            items.append({
+                "title": f"Log the outcome of the {iv['kind']} interview at {iv['company'] or 'the company'}",
+                "kind": "interview_outcome",
+                "ref_kind": "interview_event", "ref_id": iv["id"],
+                "due_date": today.isoformat(),
+                "score": 65,
+                "why": f"The interview was {-d} day(s) ago and is still marked "
+                       "upcoming - record how it went so follow-ups stay accurate.",
+            })
+            steps.append({"step": "rule_interview_outcome",
+                          "detail": f"Interview at {iv['company']} passed {-d}d ago -> log outcome."})
+        elif d is not None and 0 <= d <= INTERVIEW_PREP_WINDOW_DAYS:
             when = "today" if d == 0 else ("tomorrow" if d == 1 else f"in {d} days")
             items.append({
                 "title": f"Prepare for the {iv['kind']} interview at {iv['company'] or 'the company'}",
@@ -95,6 +146,26 @@ def build_plan(conn: sqlite3.Connection, today: dt.date | None = None) -> dict:
             })
             steps.append({"step": "rule_deadline",
                           "detail": f"{app['company']} deadline is {when} -> schedule application work."})
+
+    # Rule 2b: deadline passed and the application was never sent
+    for app in applications:
+        if app["status"] in ("applied", "offer"):
+            continue
+        day = _parse_date(app["deadline"])
+        d = _days_until(day, today)
+        if d is not None and d < 0:
+            late = -d
+            items.append({
+                "title": f"Deadline passed for {app['role']} at {app['company']} - apply late or drop it",
+                "kind": "application",
+                "ref_kind": "application", "ref_id": app["id"],
+                "due_date": today.isoformat(),
+                "score": 85 - min(late, 14),
+                "why": f"The deadline was {late} day(s) ago ({day.isoformat()}) and the "
+                       f"status is still '{app['status']}' - send it late or mark it withdrawn.",
+            })
+            steps.append({"step": "rule_deadline_overdue",
+                          "detail": f"{app['company']} deadline passed {late}d ago -> escalate."})
 
     # Rule 3: follow-up due or overdue
     for app in applications:
@@ -158,35 +229,55 @@ def build_plan(conn: sqlite3.Connection, today: dt.date | None = None) -> dict:
             "why": why,
         })
 
-    # Rule 6: quiet-day fallback - prep from the latest JD analysis, or practice
+    # Rule 6: quiet-day fallback - targeted prep and adaptive practice
     if len(items) < 3:
-        if latest_analysis:
-            import json
-            analysis = latest_analysis[0]
-            missing = json.loads(analysis["missing"] or "[]")
-            if missing:
-                skill = missing[0]
-                items.append({
-                    "title": f"Prep '{skill}' - asked for in a role you analysed",
-                    "kind": "study",
-                    "ref_kind": "jd_analysis", "ref_id": analysis["id"],
-                    "due_date": today.isoformat(),
-                    "score": 40,
-                    "why": "Quiet day: this skill was missing from your profile for the "
-                           "most recent job description you analysed.",
-                })
-                steps.append({"step": "rule_quiet_prep",
-                              "detail": f"Plan had room; added study prep for '{skill}'."})
-        items.append({
-            "title": "Do one mock-interview question",
-            "kind": "study",
-            "ref_kind": "", "ref_id": None,
-            "due_date": today.isoformat(),
-            "score": 30,
-            "why": "Quiet day: short daily practice keeps interview answers fresh.",
-        })
-        steps.append({"step": "rule_quiet_practice",
-                      "detail": "Plan had room; added one mock-interview question."})
+        # Prep the skill missing most often across recent analyses, not just
+        # the first gap of the latest one: frequency across roles is the
+        # honest signal of what the market keeps asking for.
+        analyses = db.query(
+            conn, "SELECT id, missing FROM jd_analysis "
+                  "ORDER BY created_at DESC LIMIT ?", (RECENT_ANALYSES,))
+        freq: Counter = Counter()
+        for a in analyses:
+            freq.update(set(json.loads(a["missing"] or "[]")))
+        if freq:
+            skill, count = freq.most_common(1)[0]
+            items.append({
+                "title": f"Prep '{skill}' - asked for in {count} of your last {len(analyses)} analysed role(s)",
+                "kind": "study",
+                "ref_kind": "jd_analysis", "ref_id": analyses[0]["id"],
+                "due_date": today.isoformat(),
+                "score": 40,
+                "why": f"Quiet day: '{skill}' was missing from your profile in "
+                       f"{count} of your last {len(analyses)} analysed role(s).",
+            })
+            steps.append({"step": "rule_quiet_prep",
+                          "detail": f"Plan had room; added study prep for '{skill}' "
+                                    f"({count}/{len(analyses)} recent roles)."})
+        target = _practice_target(conn, today)
+        if target:
+            items.append({
+                "title": f"Practice {target['label']} interview questions",
+                "kind": "study",
+                "ref_kind": "", "ref_id": None,
+                "due_date": today.isoformat(),
+                "score": 30,
+                "why": "Quiet day: " + target["why"],
+            })
+            steps.append({"step": "rule_quiet_practice",
+                          "detail": f"Plan had room; practice targets {target['label']}: "
+                                    + target["why"]})
+        else:
+            items.append({
+                "title": "Do one mock-interview question",
+                "kind": "study",
+                "ref_kind": "", "ref_id": None,
+                "due_date": today.isoformat(),
+                "score": 30,
+                "why": "Quiet day: short daily practice keeps interview answers fresh.",
+            })
+            steps.append({"step": "rule_quiet_practice",
+                          "detail": "Plan had room; added one mock-interview question."})
 
     items.sort(key=lambda i: i["score"], reverse=True)
     items = items[:MAX_PLAN_ITEMS]
