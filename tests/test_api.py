@@ -87,3 +87,10 @@ def test_question_tag_param():
     r = client.get("/api/interview/question", params={"category": "sql", "tag": "PostgreSQL"})
     assert r.status_code == 200
     assert r.json()["category"] == "sql"
+
+
+def test_status_reports_commit(monkeypatch):
+    monkeypatch.setenv("RENDER_GIT_COMMIT", "abc123def")
+    r = client.get("/api/status")
+    assert r.status_code == 200
+    assert r.json()["commit"] == "abc123def"

@@ -669,4 +669,7 @@ def status(request: Request):
         "llm_configured": llm_client.server_llm_available(),
         "privacy_mode": pol.mode,
         "version": app.version,
+        # Render injects RENDER_GIT_COMMIT at build/run time; empty locally.
+        # Lets deploy verification confirm which commit the live process runs.
+        "commit": os.environ.get("RENDER_GIT_COMMIT", ""),
     }
