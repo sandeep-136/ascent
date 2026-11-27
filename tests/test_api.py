@@ -94,3 +94,30 @@ def test_status_reports_commit(monkeypatch):
     r = client.get("/api/status")
     assert r.status_code == 200
     assert r.json()["commit"] == "abc123def"
+
+
+def test_interview_round_crud_and_outcome():
+    r = client.post("/api/interviews", json={
+        "company": "Acme", "role": "SDE Intern", "kind": "technical",
+        "scheduled_at": "2099-01-10T10:00:00", "status": "upcoming"})
+    assert r.status_code == 201
+    iid = r.json()["id"]
+    # log the outcome
+    r = client.put(f"/api/interviews/{iid}", json={
+        "company": "Acme", "role": "SDE Intern", "kind": "technical",
+        "scheduled_at": "2099-01-10T10:00:00", "status": "done",
+        "outcome": "Moved to next round"})
+    assert r.status_code == 200
+    rows = client.get("/api/interviews").json()
+    row = next(x for x in rows if x["id"] == iid)
+    assert row["status"] == "done" and row["outcome"] == "Moved to next round"
+    # unknown id
+    assert client.put("/api/interviews/99999", json={
+        "company": "X", "role": "", "kind": "hr",
+        "scheduled_at": "2099-01-01T09:00:00", "status": "done"}).status_code == 404
+    # invalid kind rejected
+    assert client.post("/api/interviews", json={
+        "company": "X", "role": "", "kind": "bogus",
+        "scheduled_at": "2099-01-01T09:00:00", "status": "upcoming"}).status_code == 422
+    assert client.delete(f"/api/interviews/{iid}").status_code == 200
+    assert not any(x["id"] == iid for x in client.get("/api/interviews").json())

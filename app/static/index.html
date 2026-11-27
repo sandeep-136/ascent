@@ -265,6 +265,27 @@
     <h2>Tracked applications</h2>
     <div id="app-list"></div>
   </div>
+  <div class="card">
+    <h2>Interview rounds</h2>
+    <p class="muted">When a round is close, the plan puts prep at the top. Afterwards, log the outcome here so follow-ups stay accurate.</p>
+    <div class="row">
+      <div><label>Application (optional)</label><select id="iv-app"><option value="">None / other</option></select></div>
+      <div><label>Round</label>
+        <select id="iv-kind">
+          <option value="phone">Phone screen</option><option value="oa">Online assessment</option>
+          <option value="technical" selected>Technical</option><option value="hr">HR</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
+    </div>
+    <div class="row">
+      <div><label>Company</label><input id="iv-company"></div>
+      <div><label>Role</label><input id="iv-role"></div>
+    </div>
+    <label>Date and time</label><input id="iv-when" type="datetime-local">
+    <div style="margin-top:12px"><button class="act" id="add-iv">Add round</button></div>
+    <div id="iv-list" style="margin-top:14px"></div>
+  </div>
 </section>
 
 <!-- JD FIT -->
@@ -389,7 +410,7 @@ function lockEl(el) {
 function lockDynamic() {
   if (!DEMO) return;
   document.querySelectorAll(
-    "#task-list button, #app-list button, #project-list button, #skill-list a, #submit-answer, #ai-feedback, #ai-brief, #q-answer, #q-stars button, #ms-start, #ms-submit, #ms-answer, #ms-stars button"
+    "#task-list button, #app-list button, #iv-list button, #iv-list select, #iv-app, #iv-kind, #iv-company, #iv-role, #iv-when, #add-iv, #project-list button, #skill-list a, #submit-answer, #ai-feedback, #ai-brief, #q-answer, #q-stars button, #ms-start, #ms-submit, #ms-answer, #ms-stars button"
   ).forEach(lockEl);
 }
 api("/api/auth/me").then(me => {
@@ -449,7 +470,7 @@ document.querySelectorAll("#tabs button").forEach(b => b.onclick = () => {
   b.classList.add("active");
   $("tab-" + b.dataset.tab).classList.add("active");
   if (b.dataset.tab === "today") loadTasks();
-  if (b.dataset.tab === "applications") loadApps();
+  if (b.dataset.tab === "applications") { loadApps(); loadInterviews(); }
   if (b.dataset.tab === "prepare") loadFitHistory();
   if (b.dataset.tab === "interview") { loadQStats(); loadQHistory(); }
   if (b.dataset.tab === "profile") loadProfile();
@@ -533,6 +554,68 @@ async function loadApps() {
   lockDynamic();
 }
 window.delApp = async (id) => { if (confirm("Delete this application?")) { await api(`/api/applications/${id}`, {method: "DELETE"}); loadApps(); } };
+
+/* INTERVIEW ROUNDS */
+let ivApps = [];
+let ivRows = [];
+$("iv-app").onchange = () => {
+  const a = ivApps.find(x => x.id === +$("iv-app").value);
+  if (a) { $("iv-company").value = a.company; $("iv-role").value = a.role; }
+};
+$("add-iv").onclick = async () => {
+  const when = $("iv-when").value;
+  if (!when) return alert("Pick the date and time.");
+  const company = $("iv-company").value.trim();
+  if (!company) return alert("Company is needed.");
+  await api("/api/interviews", {method: "POST", body: JSON.stringify({
+    application_id: +$("iv-app").value || null,
+    company, role: $("iv-role").value.trim(),
+    kind: $("iv-kind").value, scheduled_at: when, status: "upcoming"})});
+  $("iv-when").value = ""; $("iv-company").value = ""; $("iv-role").value = ""; $("iv-app").value = "";
+  loadInterviews();
+};
+
+async function loadInterviews() {
+  ivApps = await api("/api/applications");
+  const sel = $("iv-app");
+  const cur = sel.value;
+  sel.innerHTML = `<option value="">None / other</option>`
+    + ivApps.map(a => `<option value="${a.id}">${esc(a.company)} - ${esc(a.role)}</option>`).join("");
+  sel.value = cur;
+  ivRows = await api("/api/interviews");
+  ivRows.sort((a, b) => ((a.status === "upcoming" ? 0 : 1) - (b.status === "upcoming" ? 0 : 1))
+    || a.scheduled_at.localeCompare(b.scheduled_at));
+  const fmt = (s) => new Date(s).toLocaleString([], {dateStyle: "medium", timeStyle: "short"});
+  $("iv-list").innerHTML = ivRows.length ? ivRows.map(iv => `
+    <div class="plan-item" style="border-left-color:${iv.status === "upcoming" ? "var(--accent)" : "#bbb"}">
+      <b>${esc(iv.company)}${iv.role ? " · " + esc(iv.role) : ""}</b>
+      <span class="chip dim">${esc(iv.kind)}</span>
+      <span class="chip ${iv.status === "upcoming" ? "ok" : "dim"}">${esc(iv.status)}</span>
+      <div class="why">${fmt(iv.scheduled_at)}${iv.outcome ? " · " + esc(iv.outcome) : ""}</div>
+      ${iv.status === "upcoming" ? `<div class="meta">
+        <select id="iv-out-${iv.id}" style="padding:4px 8px; font-size:12.5px">
+          <option value="">Outcome…</option>
+          <option>Moved to next round</option><option>Waiting to hear back</option>
+          <option>Rejected</option><option>Offer</option><option>Went badly</option>
+        </select>
+        <button class="ghost" onclick="closeIv(${iv.id}, 'done')">Log outcome</button>
+        <button class="ghost" onclick="closeIv(${iv.id}, 'cancelled')">Cancel round</button>
+        <button class="ghost" onclick="delIv(${iv.id})">✕</button>
+      </div>` : ""}
+    </div>`).join("") : `<div class="empty">No interview rounds yet.</div>`;
+  lockDynamic();
+}
+window.closeIv = async (id, status) => {
+  const row = ivRows.find(x => x.id === id);
+  if (!row) return;
+  const outcome = status === "done" ? ($("iv-out-" + id)?.value || "") : "";
+  if (status === "done" && !outcome) return alert("Pick an outcome first.");
+  await api(`/api/interviews/${id}`, {method: "PUT", body: JSON.stringify({
+    application_id: row.application_id, company: row.company, role: row.role,
+    kind: row.kind, scheduled_at: row.scheduled_at, status, outcome, notes: row.notes})});
+  loadInterviews();
+};
+window.delIv = async (id) => { if (confirm("Delete this round?")) { await api(`/api/interviews/${id}`, {method: "DELETE"}); loadInterviews(); } };
 
 /* JD FIT */
 function renderFit(r, opts = {}) {

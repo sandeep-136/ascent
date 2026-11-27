@@ -41,7 +41,12 @@ A project by Sandeep Sagar
 - **Mock interviews** — a curated question bank (Python, SQL, DSA, web, ML,
   CS fundamentals, behavioral) plus questions generated from the projects
   in your profile. Answers are recorded with a self-rating so you can see
-  practice volume and coverage over time.
+  practice volume and coverage over time. Interview rounds for real
+  applications live next to the tracker, with outcomes logged in place.
+
+<p>
+  <img src="docs/screenshots/mock-session.png" alt="Ascent - mock interview session review: three SQL questions with self-ratings and a closing summary" width="720">
+</p>
 - **Optional LLM features** — an AI prep brief for a fit analysis and AI
   feedback on a practice answer. These are layered on top of the
   deterministic core and are strictly opt-in per call (see Privacy).
