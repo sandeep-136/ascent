@@ -9,7 +9,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from . import auth, db
-from .agent import fit, interview, planner
+from .agent import fit, interview, planner, sync
 
 app = FastAPI(title="Ascent", version="0.1.0",
               description="A personal AI career agent: daily plan, application tracking, "
@@ -362,8 +362,9 @@ def list_interviews():
 def add_interview(body: InterviewEventIn):
     c = conn()
     try:
-        return {"id": db.insert(c, "interview_event",
-                                {**body.model_dump(), "created_at": db.now()})}
+        iid = db.insert(c, "interview_event", {**body.model_dump(), "created_at": db.now()})
+        change = sync.sync_application(c, body.application_id, body.kind, body.status, body.outcome)
+        return {"id": iid, "application_change": change}
     finally:
         c.close()
 
@@ -375,7 +376,8 @@ def put_interview(iid: int, body: InterviewEventIn):
         if not db.get(c, "interview_event", iid):
             raise HTTPException(404, "interview not found")
         db.update(c, "interview_event", iid, body.model_dump())
-        return {"ok": True}
+        change = sync.sync_application(c, body.application_id, body.kind, body.status, body.outcome)
+        return {"ok": True, "application_change": change}
     finally:
         c.close()
 

@@ -47,6 +47,15 @@ A project by Sandeep Sagar
 <p>
   <img src="docs/screenshots/mock-session.png" alt="Ascent - mock interview session review: three SQL questions with self-ratings and a closing summary" width="720">
 </p>
+- **Status auto-sync** — adding an interview round moves its application
+  forward (applied -> interview, or -> online assessment for an OA), and a
+  logged Rejected or Offer outcome closes it. The rule is deterministic:
+  forward-only, never touches an application already at offer, rejected or
+  withdrawn, and every change is shown with its reason so you can undo it.
+
+<p>
+  <img src="docs/screenshots/status-sync.png" alt="Ascent - adding a technical round moves the application from Applied to Interview and says why" width="360">
+</p>
 - **Optional LLM features** — an AI prep brief for a fit analysis and AI
   feedback on a practice answer. These are layered on top of the
   deterministic core and are strictly opt-in per call (see Privacy).

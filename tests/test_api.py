@@ -121,3 +121,38 @@ def test_interview_round_crud_and_outcome():
         "scheduled_at": "2099-01-01T09:00:00", "status": "upcoming"}).status_code == 422
     assert client.delete(f"/api/interviews/{iid}").status_code == 200
     assert not any(x["id"] == iid for x in client.get("/api/interviews").json())
+
+
+# ---- status sync from interview rounds ----
+def _app(status):
+    r = client.post("/api/applications", json={"company": "Sample Co", "role": "SDE Intern", "status": status})
+    return r.json()["id"]
+
+
+def _status(aid):
+    return next(a for a in client.get("/api/applications").json() if a["id"] == aid)["status"]
+
+
+def test_adding_round_advances_application_via_api():
+    aid = _app("applied")
+    r = client.post("/api/interviews", json={"application_id": aid, "company": "Sample Co",
+                                             "kind": "technical", "scheduled_at": "2026-12-01T10:00"})
+    ch = r.json()["application_change"]
+    assert ch["from"] == "applied" and ch["to"] == "interview"
+    assert _status(aid) == "interview"
+
+
+def test_logging_rejection_closes_application_and_notice_absent_when_no_change():
+    aid = _app("interview")
+    iid = client.post("/api/interviews", json={"application_id": aid, "company": "Sample Co",
+                                               "kind": "hr", "scheduled_at": "2026-12-02T10:00"}).json()
+    assert iid["application_change"] is None
+    r = client.put(f"/api/interviews/{iid['id']}", json={"application_id": aid, "company": "Sample Co",
+                   "kind": "hr", "scheduled_at": "2026-12-02T10:00", "status": "done", "outcome": "Rejected"})
+    assert r.json()["application_change"]["to"] == "rejected"
+    assert _status(aid) == "rejected"
+
+
+def test_round_without_application_changes_nothing():
+    r = client.post("/api/interviews", json={"company": "Loose Co", "kind": "phone", "scheduled_at": "2026-12-03T10:00"})
+    assert r.json()["application_change"] is None
